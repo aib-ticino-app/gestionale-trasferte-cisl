@@ -385,6 +385,7 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
   Future<void> _mostraSelettoreIntervalloStampa() async {
     DateTime dataInizio = DateTime.now().subtract(const Duration(days: 7));
     DateTime dataFine = DateTime.now();
+    List<DateTime> dateRegistrate = _archivioGiornate.map((g) => g.data).toList();
 
     await showDialog(
       context: context,
@@ -392,40 +393,48 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
-              title: const Text('Seleziona Intervallo per Stampa'),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: const Text('Seleziona Intervallo per Stampa', style: TextStyle(fontSize: 16)),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   ListTile(
-                    title: const Text('Data Inizio'),
-                    subtitle: Text('${dataInizio.day}/${dataInizio.month}/${dataInizio.year}'),
-                    trailing: const Icon(Icons.calendar_today),
-                    onTap: () async {
-                      DateTime? picked = await showDatePicker(
+                    title: const Text('Data Inizio', style: TextStyle(fontSize: 14)),
+                    subtitle: Text('${dataInizio.day}/${dataInizio.month}/${dataInizio.year}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                    trailing: const Icon(Icons.calendar_today, color: Color(0xFF0B5335)),
+                    onTap: () {
+                      showDialog(
                         context: context,
-                        initialDate: dataInizio,
-                        firstDate: DateTime(2025),
-                        lastDate: DateTime(2030),
+                        builder: (context) => CustomCalendarPicker(
+                          initialDate: dataInizio,
+                          firstDate: DateTime(2025, 1, 1),
+                          lastDate: DateTime(2030, 12, 31),
+                          recordedDates: dateRegistrate,
+                          onDateSelected: (DateTime picked) {
+                            setDialogState(() => dataInizio = picked);
+                          },
+                        ),
                       );
-                      if (picked != null) {
-                        setDialogState(() => dataInizio = picked);
-                      }
                     },
                   ),
+                  const Divider(),
                   ListTile(
-                    title: const Text('Data Fine'),
-                    subtitle: Text('${dataFine.day}/${dataFine.month}/${dataFine.year}'),
-                    trailing: const Icon(Icons.calendar_today),
-                    onTap: () async {
-                      DateTime? picked = await showDatePicker(
+                    title: const Text('Data Fine', style: TextStyle(fontSize: 14)),
+                    subtitle: Text('${dataFine.day}/${dataFine.month}/${dataFine.year}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                    trailing: const Icon(Icons.calendar_today, color: Color(0xFF0B5335)),
+                    onTap: () {
+                      showDialog(
                         context: context,
-                        initialDate: dataFine,
-                        firstDate: DateTime(2025),
-                        lastDate: DateTime(2030),
+                        builder: (context) => CustomCalendarPicker(
+                          initialDate: dataFine,
+                          firstDate: DateTime(2025, 1, 1),
+                          lastDate: DateTime(2030, 12, 31),
+                          recordedDates: dateRegistrate,
+                          onDateSelected: (DateTime picked) {
+                            setDialogState(() => dataFine = picked);
+                          },
+                        ),
                       );
-                      if (picked != null) {
-                        setDialogState(() => dataFine = picked);
-                      }
                     },
                   ),
                 ],
@@ -433,7 +442,7 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: const Text('Annulla'),
+                  child: const Text('Annulla', style: TextStyle(color: Colors.grey)),
                 ),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0B5335), foregroundColor: Colors.white),
