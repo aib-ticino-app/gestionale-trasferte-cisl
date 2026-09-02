@@ -5,6 +5,7 @@ class CustomCalendarPicker extends StatefulWidget {
   final DateTime firstDate;
   final DateTime lastDate;
   final ValueChanged<DateTime> onDateSelected;
+  final List<DateTime> recordedDates; // Date che contengono dati salvati
 
   const CustomCalendarPicker({
     Key? key,
@@ -12,6 +13,7 @@ class CustomCalendarPicker extends StatefulWidget {
     required this.firstDate,
     required this.lastDate,
     required this.onDateSelected,
+    required this.recordedDates,
   }) : super(key: key);
 
   @override
@@ -29,21 +31,20 @@ class _CustomCalendarPickerState extends State<CustomCalendarPicker> {
     _displayedMonth = DateTime(_selectedDate.year, _selectedDate.month);
   }
 
-  // Lista delle feste nazionali italiane fisse
   bool _isNationalHoliday(DateTime date) {
     int day = date.day;
     int month = date.month;
 
-    if ((month == 1 && day == 1) ||   // Capodanno
-        (month == 1 && day == 6) ||   // Epifania
-        (month == 4 && day == 25) ||  // Festa della Liberazione
-        (month == 5 && day == 1) ||   // Festa dei Lavoratori
-        (month == 6 && day == 2) ||   // Festa della Repubblica
-        (month == 8 && day == 15) ||  // Ferragosto
-        (month == 11 && day == 1) ||  // Ognissanti
-        (month == 12 && day == 8) ||  // Immacolata Concezione
-        (month == 12 && day == 25) || // Natale
-        (month == 12 && day == 26)) { // Santo Stefano
+    if ((month == 1 && day == 1) ||
+        (month == 1 && day == 6) ||
+        (month == 4 && day == 25) ||
+        (month == 5 && day == 1) ||
+        (month == 6 && day == 2) ||
+        (month == 8 && day == 15) ||
+        (month == 11 && day == 1) ||
+        (month == 12 && day == 8) ||
+        (month == 12 && day == 25) ||
+        (month == 12 && day == 26)) {
       return true;
     }
     return false;
@@ -54,6 +55,11 @@ class _CustomCalendarPickerState extends State<CustomCalendarPicker> {
       return true;
     }
     return _isNationalHoliday(date);
+  }
+
+  bool _hasData(DateTime date) {
+    return widget.recordedDates.any((d) =>
+        d.year == date.year && d.month == date.month && d.day == date.day);
   }
 
   @override
@@ -114,7 +120,17 @@ class _CustomCalendarPickerState extends State<CustomCalendarPicker> {
             ),
             const Divider(height: 20),
             _buildCalendarGrid(),
-            const SizedBox(height: 20),
+            const SizedBox(height: 10),
+            // Legenda
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(width: 10, height: 10, decoration: const BoxDecoration(color: Colors.blue, shape: BoxShape.circle)),
+                const SizedBox(width: 5),
+                const Text('Giorni con dati inseriti', style: TextStyle(fontSize: 11, color: Colors.grey)),
+              ],
+            ),
+            const SizedBox(height: 15),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
@@ -125,7 +141,7 @@ class _CustomCalendarPickerState extends State<CustomCalendarPicker> {
                 const SizedBox(width: 8),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green[800],
+                    backgroundColor: const Color(0xFF0B5335),
                     foregroundColor: Colors.white,
                   ),
                   onPressed: () {
@@ -163,6 +179,7 @@ class _CustomCalendarPickerState extends State<CustomCalendarPicker> {
           _selectedDate.day == currentDate.day;
 
       bool isRedDay = _isWeekendOrHoliday(currentDate);
+      bool hasRecordedData = _hasData(currentDate);
 
       dayWidgets.add(
         GestureDetector(
@@ -173,8 +190,11 @@ class _CustomCalendarPickerState extends State<CustomCalendarPicker> {
           },
           child: Container(
             decoration: BoxDecoration(
-              color: isSelected ? Colors.green[800] : Colors.transparent,
+              color: isSelected ? const Color(0xFF0B5335) : Colors.transparent,
               shape: BoxShape.circle,
+              border: hasRecordedData && !isSelected
+                  ? Border.all(color: Colors.blue, width: 2)
+                  : null,
             ),
             alignment: Alignment.center,
             child: Text(
@@ -183,7 +203,9 @@ class _CustomCalendarPickerState extends State<CustomCalendarPicker> {
                 color: isSelected
                     ? Colors.white
                     : (isRedDay ? Colors.red : Colors.black87),
-                fontWeight: isSelected || isRedDay ? FontWeight.bold : FontWeight.normal,
+                fontWeight: isSelected || hasRecordedData || isRedDay
+                    ? FontWeight.bold
+                    : FontWeight.normal,
               ),
             ),
           ),

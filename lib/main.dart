@@ -61,6 +61,9 @@ class GiornataSalvata {
   final String stato;
   final String modelloAuto;
   final String targa;
+  final String alimentazione;
+  final double costoAciKm;
+  final List<TrattDataBackup> tratteDettaglio;
   final double rimborsoAci;
   final double speseExtra;
   final double totale;
@@ -71,11 +74,24 @@ class GiornataSalvata {
     required this.stato,
     required this.modelloAuto,
     required this.targa,
+    required this.alimentazione,
+    required this.costoAciKm,
+    required this.tratteDettaglio,
     required this.rimborsoAci,
     required this.speseExtra,
     required this.totale,
     required this.attivita,
   });
+}
+
+class TrattDataBackup {
+  final String partenza;
+  final String arrivo;
+  final bool isAndataRitorno;
+  final String km;
+  final double rimborso;
+
+  TrattDataBackup({required this.partenza, required this.arrivo, required this.isAndataRitorno, required this.km, required this.rimborso});
 }
 
 class SchermataGiornalieraPage extends StatefulWidget {
@@ -94,7 +110,7 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
   String _alimentazioneSelezionata = 'Gasolio (Diesel)';
   double _costoAciKm = 0.45;
 
-  final List<TrattaViaggio> _tratte = [TrattaViaggio()];
+  List<TrattaViaggio> _tratte = [TrattaViaggio()];
 
   final TextEditingController _parcheggioController = TextEditingController();
   final TextEditingController _pedaggioController = TextEditingController();
@@ -122,17 +138,69 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
     tratta.kmController.addListener(_calcolaTotali);
   }
 
+  // Carica i dati salvati per la data selezionata se presenti in archivio
+  void _caricaDatiGiorno(DateTime data) {
+    var salvata = _archivioGiornate.firstWhere(
+      (g) => g.data.year == data.year && g.data.month == data.month && g.data.day == data.day,
+      orElse: () => GiornataSalvata(
+        data: data,
+        stato: 'Lavorativa',
+        modelloAuto: '',
+        targa: '',
+        alimentazione: 'Gasolio (Diesel)',
+        costoAciKm: 0.45,
+        tratteDettaglio: [],
+        rimborsoAci: 0,
+        speseExtra: 0,
+        totale: 0,
+        attivita: '',
+      ),
+    );
+
+    setState(() {
+      _dataSelezionata = data;
+      _statoGiornata = salvata.stato;
+      if (_archivioGiornate.any((g) => g.data.year == data.year && g.data.month == data.month && g.data.day == data.day)) {
+        _modelloAutoController.text = salvata.modelloAuto;
+        _targaController.text = salvata.targa;
+        _alimentazioneSelezionata = salvata.alimentazione;
+        _costoAciKm = salvata.costoAciKm;
+        _agendaController.text = salvata.attivita;
+
+        _tratte = salvata.tratteDettaglio.map((t) {
+          var tv = TrattaViaggio();
+          tv.partenzaController.text = t.partenza;
+          tv.arrivoController.text = t.arrivo;
+          tv.isAndataRitorno = t.isAndataRitorno;
+          tv.kmController.text = t.km;
+          tv.rimborsoTratta = t.rimborso;
+          _aggiornaAscoltatoriTratta(tv);
+          return tv;
+        }).toList();
+
+        if (_tratte.isEmpty) {
+          _tratte = [TrattaViaggio()];
+          _aggiornaAscoltatoriTratta(_tratte[0]);
+        }
+      } else {
+        _azzeraCampiLavorativi();
+      }
+      _calcolaTotali();
+    });
+  }
+
   Future<void> _selezionaData(BuildContext context) async {
+    List<DateTime> dateRegistrate = _archivioGiornate.map((g) => g.data).toList();
+
     showDialog(
       context: context,
       builder: (context) => CustomCalendarPicker(
         initialDate: _dataSelezionata,
         firstDate: DateTime(2025, 1, 1),
         lastDate: DateTime(2030, 12, 31),
+        recordedDates: dateRegistrate,
         onDateSelected: (DateTime newDate) {
-          setState(() {
-            _dataSelezionata = newDate;
-          });
+          _caricaDatiGiorno(newDate);
         },
       ),
     );
@@ -171,14 +239,10 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
             });
 
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Tratta calcolata: ${tratta.kmController.text} km (${tratta.isAndataRitorno ? "A/R" : "Solo Andata"})')),
+              SnackBar(content: Text('Tratta calcolata: ${tratta.kmController.text} km')),
             );
           }
         }
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Indirizzo non trovato.')),
-        );
       }
     } catch (e) {
       print('Errore: $e');
@@ -253,11 +317,12 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
     _modelloAutoController.clear();
     _targaController.clear();
     for (var t in _tratte) {
-      t.partenzaController.clear();
-      t.arrivoController.clear();
-      t.kmController.clear();
-      t.isAndataRitorno = false;
+      t.partenzaController.dispose();
+      t.arrivoController.dispose();
+      t.kmController.dispose();
     }
+    _tratte = [TrattaViaggio()];
+    _aggiornaAscoltatoriTratta(_tratte[0]);
     _parcheggioController.clear();
     _pedaggioController.clear();
     _pastoController.clear();
@@ -287,12 +352,23 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
   void _salvaGiornataCorrente() {
     _archivioGiornate.removeWhere((g) => g.data.year == _dataSelezionata.year && g.data.month == _dataSelezionata.month && g.data.day == _dataSelezionata.day);
 
+    List<TrattDataBackup> tratteBackup = _tratte.map((t) => TrattDataBackup(
+      partenza: t.partenzaController.text,
+      arrivo: t.arrivoController.text,
+      isAndataRitorno: t.isAndataRitorno,
+      km: t.kmController.text,
+      rimborso: t.rimborsoTratta,
+    )).toList();
+
     _archivioGiornate.add(
       GiornataSalvata(
         data: _dataSelezionata,
         stato: _statoGiornata,
         modelloAuto: _modelloAutoController.text,
         targa: _targaController.text,
+        alimentazione: _alimentazioneSelezionata,
+        costoAciKm: _costoAciKm,
+        tratteDettaglio: tratteBackup,
         rimborsoAci: _rimborsoAciTotale,
         speseExtra: _speseExtraTotali,
         totale: _totaleGiornaliero,
@@ -300,58 +376,97 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
       ),
     );
 
-    String dataStr = '${_dataSelezionata.day}/${_dataSelezionata.month}/${_dataSelezionata.year}';
-    String msg = _statoGiornata != 'Lavorativa'
-        ? 'Giornata del $dataStr salvata come: $_statoGiornata'
-        : 'Giornata del $dataStr salvata con successo! Totale: € ${_totaleGiornaliero.toStringAsFixed(2)}';
-
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg)),
+      SnackBar(content: Text('Giornata del ${_dataSelezionata.day}/${_dataSelezionata.month}/${_dataSelezionata.year} salvata con successo!')),
     );
   }
 
-  Future<void> _stampaPdfRiepilogo(String tipoPeriodo) async {
+  // Finestra di dialogo per selezionare un intervallo personalizzato "Da data a data"
+  Future<void> _mostraSelettoreIntervalloStampa() async {
+    DateTime dataInizio = DateTime.now().subtract(const Duration(days: 7));
+    DateTime dataFine = DateTime.now();
+
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Seleziona Intervallo per Stampa'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ListTile(
+                    title: const Text('Data Inizio'),
+                    subtitle: Text('${dataInizio.day}/${dataInizio.month}/${dataInizio.year}'),
+                    trailing: const Icon(Icons.calendar_today),
+                    onTap: () async {
+                      DateTime? picked = await showDatePicker(
+                        context: context,
+                        initialDate: dataInizio,
+                        firstDate: DateTime(2025),
+                        lastDate: DateTime(2030),
+                      );
+                      if (picked != null) {
+                        setDialogState(() => dataInizio = picked);
+                      }
+                    },
+                  ),
+                  ListTile(
+                    title: const Text('Data Fine'),
+                    subtitle: Text('${dataFine.day}/${dataFine.month}/${dataFine.year}'),
+                    trailing: const Icon(Icons.calendar_today),
+                    onTap: () async {
+                      DateTime? picked = await showDatePicker(
+                        context: context,
+                        initialDate: dataFine,
+                        firstDate: DateTime(2025),
+                        lastDate: DateTime(2030),
+                      );
+                      if (picked != null) {
+                        setDialogState(() => dataFine = picked);
+                      }
+                    },
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Annulla'),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0B5335), foregroundColor: Colors.white),
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _stampaPdfIntervallo(dataInizio, dataFine);
+                  },
+                  child: const Text('Stampa Report'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _stampaPdfIntervallo(DateTime inizio, DateTime fine) async {
+    // Normalizza le date a inizio/fine giornata per il confronto corretto
+    DateTime start = DateTime(inizio.year, inizio.month, inizio.day);
+    DateTime end = DateTime(fine.year, fine.month, fine.day, 23, 59, 59);
+
+    List<GiornataSalvata> filtrate = _archivioGiornate.where((g) {
+      return g.data.isAfter(start.subtract(const Duration(days: 1))) && g.data.isBefore(end.add(const Duration(days: 1)));
+    }).toList();
+
+    filtrate.sort((a, b) => a.data.compareTo(b.data));
+
+    double totAci = filtrate.fold(0.0, (sum, item) => sum + item.rimborsoAci);
+    double totExtra = filtrate.fold(0.0, (sum, item) => sum + item.speseExtra);
+    double totComplessivo = filtrate.fold(0.0, (sum, item) => sum + item.totale);
+
     final pdf = pw.Document();
-
-    List<GiornataSalvata> giornateFiltrate = [];
-    String periodoTesto = '';
-
-    if (tipoPeriodo == 'Giornaliero') {
-      periodoTesto = 'Data: ${_dataSelezionata.day}/${_dataSelezionata.month}/${_dataSelezionata.year}';
-      giornateFiltrate = _archivioGiornate.where((g) => g.data.year == _dataSelezionata.year && g.data.month == _dataSelezionata.month && g.data.day == _dataSelezionata.day).toList();
-      
-      if (giornateFiltrate.isEmpty) {
-        giornateFiltrate.add(GiornataSalvata(
-          data: _dataSelezionata,
-          stato: _statoGiornata,
-          modelloAuto: _modelloAutoController.text,
-          targa: _targaController.text,
-          rimborsoAci: _rimborsoAciTotale,
-          speseExtra: _speseExtraTotali,
-          totale: _totaleGiornaliero,
-          attivita: _agendaController.text,
-        ));
-      }
-    } else if (tipoPeriodo == 'Settimanale') {
-      DateTime inizioSettimana = _dataSelezionata.subtract(Duration(days: _dataSelezionata.weekday - 1));
-      DateTime fineSettimana = inizioSettimana.add(const Duration(days: 6));
-      periodoTesto = 'Periodo: Dal ${inizioSettimana.day}/${inizioSettimana.month}/${inizioSettimana.year} al ${fineSettimana.day}/${fineSettimana.month}/${fineSettimana.year}';
-
-      giornateFiltrate = _archivioGiornate.where((g) {
-        return g.data.isAfter(inizioSettimana.subtract(const Duration(days: 1))) && g.data.isBefore(fineSettimana.add(const Duration(days: 1)));
-      }).toList();
-    } else if (tipoPeriodo == 'Mensile') {
-      periodoTesto = 'Mese di Riferimento: ${_dataSelezionata.month}/${_dataSelezionata.year}';
-
-      giornateFiltrate = _archivioGiornate.where((g) {
-        return g.data.year == _dataSelezionata.year && g.data.month == _dataSelezionata.month;
-      }).toList();
-    }
-
-    double totaleAciPeriodo = giornateFiltrate.fold(0.0, (sum, item) => sum + item.rimborsoAci);
-    double totaleExtraPeriodo = giornateFiltrate.fold(0.0, (sum, item) => sum + item.speseExtra);
-    double totaleComplessivoPeriodo = giornateFiltrate.fold(0.0, (sum, item) => sum + item.totale);
-
     pdf.addPage(
       pw.Page(
         build: (pw.Context context) {
@@ -362,71 +477,51 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
                 mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                 children: [
                   pw.Text('CISL FP DEI LAGHI', style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold)),
-                  pw.Text('Riepilogo $tipoPeriodo', style: pw.TextStyle(fontSize: 16)),
+                  pw.Text('Report Intervallo Personalizzato', style: pw.TextStyle(fontSize: 14)),
                 ],
               ),
               pw.Divider(thickness: 2),
               pw.SizedBox(height: 10),
-              pw.Text(periodoTesto, style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
-              pw.SizedBox(height: 10),
-              
-              if (tipoPeriodo == 'Giornaliero') ...[
-                if (giornateFiltrate.isNotEmpty) ...[
-                  pw.Text('Stato Giornata: ${giornateFiltrate.first.stato}', style: const pw.TextStyle(fontSize: 12)),
-                  pw.Text('Dati Veicolo: ${giornateFiltrate.first.modelloAuto} (Targa: ${giornateFiltrate.first.targa})', style: const pw.TextStyle(fontSize: 12)),
-                  pw.Text('Alimentazione: $_alimentazioneSelezionata (${_costoAciKm.toStringAsFixed(2)} EUR/km)', style: const pw.TextStyle(fontSize: 12)),
-                  pw.SizedBox(height: 15),
-                  pw.Text('Dettaglio Economico:', style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
-                  pw.Bullet(text: 'Rimborso Chilometrico ACI: EUR ${giornateFiltrate.first.rimborsoAci.toStringAsFixed(2)}'),
-                  pw.Bullet(text: 'Spese Extra (Parcheggi, Pedaggi, Pasti, Mezzi): EUR ${giornateFiltrate.first.speseExtra.toStringAsFixed(2)}'),
-                  pw.SizedBox(height: 15),
-                  pw.Text('Attività Svolte:', style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
-                  pw.Paragraph(text: giornateFiltrate.first.attivita.isEmpty ? 'Nessuna attività registrata.' : giornateFiltrate.first.attivita),
-                ],
-              ] else ...[
-                pw.SizedBox(height: 10),
-                pw.Text('Elenco Giornate Registrate nel Periodo:', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold)),
-                pw.SizedBox(height: 8),
-                giornateFiltrate.isEmpty
-                    ? pw.Paragraph(text: 'Nessuna giornata registrata in questo periodo. Ricordati di cliccare "Salva Giornata" dopo aver compilato i dati.')
-                    : pw.Table(
-                        border: pw.TableBorder.all(color: PdfColors.grey400, width: 0.5),
-                        children: [
-                          pw.TableRow(
-                            decoration: const pw.BoxDecoration(color: PdfColors.grey300),
-                            children: [
-                              pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Data', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))),
-                              pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Stato', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))),
-                              pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Rimborso ACI', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))),
-                              pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Spese Extra', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))),
-                              pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Totale', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))),
-                            ],
-                          ),
-                          ...giornateFiltrate.map((g) => pw.TableRow(
-                                children: [
-                                  pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('${g.data.day}/${g.data.month}/${g.data.year}', style: const pw.TextStyle(fontSize: 10))),
-                                  pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(g.stato, style: const pw.TextStyle(fontSize: 10))),
-                                  pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('EUR ${g.rimborsoAci.toStringAsFixed(2)}', style: const pw.TextStyle(fontSize: 10))),
-                                  pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('EUR ${g.speseExtra.toStringAsFixed(2)}', style: const pw.TextStyle(fontSize: 10))),
-                                  pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('EUR ${g.totale.toStringAsFixed(2)}', style: const pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold))),
-                                ],
-                              )),
-                        ],
-                      ),
-                pw.SizedBox(height: 15),
-                pw.Bullet(text: 'Totale Rimborsi Chilometrici ACI nel Periodo: EUR ${totaleAciPeriodo.toStringAsFixed(2)}'),
-                pw.Bullet(text: 'Totale Spese Extra nel Periodo: EUR ${totaleExtraPeriodo.toStringAsFixed(2)}'),
-              ],
-
-              pw.SizedBox(height: 25),
+              pw.Text('Dal ${start.day}/${start.month}/${start.year} al ${end.day}/${end.month}/${end.year}', style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
+              pw.SizedBox(height: 15),
+              filtrate.isEmpty
+                  ? pw.Paragraph(text: 'Nessuna giornata registrata in questo intervallo.')
+                  : pw.Table(
+                      border: pw.TableBorder.all(color: PdfColors.grey400, width: 0.5),
+                      children: [
+                        pw.TableRow(
+                          decoration: const pw.BoxDecoration(color: PdfColors.grey300),
+                          children: [
+                            pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Data', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))),
+                            pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Stato', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))),
+                            pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Rimborso ACI', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))),
+                            pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Spese Extra', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))),
+                            pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Totale', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))),
+                          ],
+                        ),
+                        ...filtrate.map((g) => pw.TableRow(
+                              children: [
+                                pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('${g.data.day}/${g.data.month}/${g.data.year}', style: const pw.TextStyle(fontSize: 10))),
+                                pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(g.stato, style: const pw.TextStyle(fontSize: 10))),
+                                pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('EUR ${g.rimborsoAci.toStringAsFixed(2)}', style: const pw.TextStyle(fontSize: 10))),
+                                pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('EUR ${g.speseExtra.toStringAsFixed(2)}', style: const pw.TextStyle(fontSize: 10))),
+                                pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('EUR ${g.totale.toStringAsFixed(2)}', style: const pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold))),
+                              ],
+                            )),
+                      ],
+                    ),
+              pw.SizedBox(height: 15),
+              pw.Bullet(text: 'Totale Rimborsi ACI: EUR ${totAci.toStringAsFixed(2)}'),
+              pw.Bullet(text: 'Totale Spese Extra: EUR ${totExtra.toStringAsFixed(2)}'),
+              pw.SizedBox(height: 20),
               pw.Container(
                 padding: const pw.EdgeInsets.all(12),
                 color: PdfColors.grey200,
                 child: pw.Row(
                   mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                   children: [
-                    pw.Text('TOTALE COMPLESSIVO PERIODALE:', style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold)),
-                    pw.Text('EUR ${totaleComplessivoPeriodo.toStringAsFixed(2)}', style: pw.TextStyle(fontSize: 15, fontWeight: pw.FontWeight.bold)),
+                    pw.Text('TOTALE COMPLESSIVO:', style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold)),
+                    pw.Text('EUR ${totComplessivo.toStringAsFixed(2)}', style: pw.TextStyle(fontSize: 15, fontWeight: pw.FontWeight.bold)),
                   ],
                 ),
               ),
@@ -436,9 +531,7 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
       ),
     );
 
-    await Printing.layoutPdf(
-      onLayout: (format) async => pdf.save(),
-    );
+    await Printing.layoutPdf(onLayout: (format) async => pdf.save());
   }
 
   @override
@@ -794,33 +887,41 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
 
             Text('Esportazione e Stampa PDF', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: cislGreen)),
             const SizedBox(height: 10),
-            Row(
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
               children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(backgroundColor: cislGreen, foregroundColor: Colors.white),
-                    onPressed: () => _stampaPdfRiepilogo('Giornaliero'),
-                    icon: const Icon(Icons.print, size: 16),
-                    label: const Text('Stampa Giorno'),
-                  ),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(backgroundColor: cislGreen, foregroundColor: Colors.white),
+                  onPressed: () => _stampaPdfIntervallo(_dataSelezionata, _dataSelezionata),
+                  icon: const Icon(Icons.print, size: 16),
+                  label: const Text('Stampa Giorno'),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(backgroundColor: cislGreen, foregroundColor: Colors.white),
-                    onPressed: () => _stampaPdfRiepilogo('Settimanale'),
-                    icon: const Icon(Icons.print, size: 16),
-                    label: const Text('Stampa Settimana'),
-                  ),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(backgroundColor: cislGreen, foregroundColor: Colors.white),
+                  onPressed: () {
+                    DateTime inizioSettimana = _dataSelezionata.subtract(Duration(days: _dataSelezionata.weekday - 1));
+                    DateTime fineSettimana = inizioSettimana.add(const Duration(days: 6));
+                    _stampaPdfIntervallo(inizioSettimana, fineSettimana);
+                  },
+                  icon: const Icon(Icons.print, size: 16),
+                  label: const Text('Stampa Settimana'),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(backgroundColor: cislGreen, foregroundColor: Colors.white),
-                    onPressed: () => _stampaPdfRiepilogo('Mensile'),
-                    icon: const Icon(Icons.print, size: 16),
-                    label: const Text('Stampa Mese'),
-                  ),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(backgroundColor: cislGreen, foregroundColor: Colors.white),
+                  onPressed: () {
+                    DateTime inizioMese = DateTime(_dataSelezionata.year, _dataSelezionata.month, 1);
+                    DateTime fineMese = DateTime(_dataSelezionata.year, _dataSelezionata.month + 1, 0);
+                    _stampaPdfIntervallo(inizioMese, fineMese);
+                  },
+                  icon: const Icon(Icons.print, size: 16),
+                  label: const Text('Stampa Mese'),
+                ),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.blue.shade800, foregroundColor: Colors.white),
+                  onPressed: _mostraSelettoreIntervalloStampa,
+                  icon: const Icon(Icons.date_range, size: 16),
+                  label: const Text('Intervallo Personalizzato (Da... a...)'),
                 ),
               ],
             ),
