@@ -6,6 +6,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'custom_calendar_picker.dart';
+import 'dart:math';
 
 void main() {
   runApp(const GestionaleSindacatoApp());
@@ -222,27 +223,40 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
       Coord? p2 = await _getCoordinateDaIndirizzo(arrivo);
 
       if (p1 != null && p2 != null) {
-        final url = Uri.parse('https://router.project-osrm.org/route/v1/driving/${p1.lon},${p1.lat};${p2.lon},${p2.lat}?overview=false');
-        final response = await http.get(url);
+        // Formula di Haversine per la distanza in linea d'aria tra due punti geografici
+        double pLat1 = p1.lat * pi / 180;
+        double pLon1 = p1.lon * pi / 180;
+        double pLat2 = p2.lat * pi / 180;
+        double pLon2 = p2.lon * pi / 180;
 
-        if (response.statusCode == 200) {
-          final data = json.decode(response.body);
-          if (data['routes'] != null && data['routes'].isNotEmpty) {
-            double metri = data['routes'][0]['distance'].toDouble();
-            double kmReali = metri / 1000.0;
+        double dLat = pLat2 - pLat1;
+        double dLon = pLon2 - pLon1;
 
-            setState(() {
-              tratta.kmSolaAndata = kmReali;
-              double kmFinali = tratta.isAndataRitorno ? kmReali * 2 : kmReali;
-              tratta.kmController.text = kmFinali.toStringAsFixed(1);
-              _calcolaTotali();
-            });
+        double a = sin(dLat / 2) * sin(dLat / 2) +
+            cos(pLat1) * cos(pLat2) * sin(dLon / 2) * sin(dLon / 2);
+        double c = 2 * atan2(sqrt(a), sqrt(1 - a));
+        
+        // Raggio della terra in km
+        double raggioTerraKm = 6371.0;
+        double distanzaLineaDaria = raggioTerraKm * c;
 
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Tratta calcolata: ${tratta.kmController.text} km')),
-            );
-          }
-        }
+        // Moltiplichiamo per 1.3 (coefficiente stradale standard per convertire la linea d'aria nei km reali percorsi su strada in Italia)
+        double kmRealiStrada = distanzaLineaDaria * 1.3;
+
+        setState(() {
+          tratta.kmSolaAndata = kmRealiStrada;
+          double kmFinali = tratta.isAndataRitorno ? kmRealiStrada * 2 : kmRealiStrada;
+          tratta.kmController.text = kmFinali.toStringAsFixed(1);
+          _calcolaTotali();
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Tratta stimata: ${tratta.kmController.text} km (${tratta.isAndataRitorno ? "A/R" : "Solo Andata"})')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Indirizzo non trovato.')),
+        );
       }
     } catch (e) {
       print('Errore: $e');
