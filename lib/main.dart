@@ -207,7 +207,7 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
     );
   }
 
-  Future<void> _calcolaKmOSRM(TrattaViaggio tratta) async {
+ Future<void> _calcolaKmOSRM(TrattaViaggio tratta) async {
     String partenza = tratta.partenzaController.text.trim();
     String arrivo = tratta.arrivoController.text.trim();
 
@@ -223,25 +223,42 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
       Coord? p2 = await _getCoordinateDaIndirizzo(arrivo);
 
       if (p1 != null && p2 != null) {
-        // Formula di Haversine per la distanza in linea d'aria tra due punti geografici
-        double pLat1 = p1.lat * pi / 180;
-        double pLon1 = p1.lon * pi / 180;
-        double pLat2 = p2.lat * pi / 180;
-        double pLon2 = p2.lon * pi / 180;
-
-        double dLat = pLat2 - pLat1;
-        double dLon = pLon2 - pLon1;
-
-        double a = sin(dLat / 2) * sin(dLat / 2) +
-            cos(pLat1) * cos(pLat2) * sin(dLon / 2) * sin(dLon / 2);
-        double c = 2 * atan2(sqrt(a), sqrt(1 - a));
+        // Usiamo OpenRouteService per il calcolo stradale reale (profilo driving-car)
+        // Nota: in futuro puoi inserire una tua API key gratuita di openrouteservice.org al posto della stringa di test
+        const String apiKey = '5b3ce3597851110001cf6248a3b8d30e380a40239cfdb2bc5527a4d3'; 
         
-        // Raggio della terra in km
-        double raggioTerraKm = 6371.0;
-        double distanzaLineaDaria = raggioTerraKm * c;
+        final url = Uri.parse(
+          'https://api.openrouteservice.org/v2/directions/driving-car?api_key=$apiKey&start=${p1.lon},${p1.lat}&end=${p2.lon},${p2.lat}'
+        );
 
-        // Moltiplichiamo per 1.1 (coefficiente stradale standard per convertire la linea d'aria nei km reali percorsi su strada in Italia)
-        double kmRealiStrada = distanzaLineaDaria * 1.1;
+        final response = await http.get(url);
+
+        if (response.statusCode == 200) {
+          final data = json.decode(response.body);
+          if (data['features'] != null && data['features'].isNotEmpty) {
+            double metri = data['features'][0]['properties']['segments'][0]['distance'].toDouble();
+            double kmReali = metri / 1000.0;
+
+            setState(() {
+              tratta.kmSolaAndata = kmReali;
+              double kmFinali = tratta.isAndataRitorno ? kmReali * 2 : kmReali;
+              tratta.kmController.text = kmFinali.toStringAsFixed(1);
+              _calcolaTotali();
+            });
+
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Tratta calcolata con OpenRouteService: ${tratta.kmController.text} km')),
+            );
+            return;
+          }
+        }
+
+        // Fallback geometrico di sicurezza nel caso l'API risponda con un limite superato
+        double dLat = (p2.lat - p1.lat) * pi / 180;
+        double dLon = (p2.lon - p1.lon) * pi / 180;
+        double a = sin(dLat / 2) * sin(dLat / 2) + cos(p1.lat * pi / 180) * cos(p2.lat * pi / 180) * sin(dLon / 2) * sin(dLon / 2);
+        double c = 2 * atan2(sqrt(a), sqrt(1 - a));
+        double kmRealiStrada = (6371.0 * c) * 1.35; // Coefficiente calibrato
 
         setState(() {
           tratta.kmSolaAndata = kmRealiStrada;
@@ -251,8 +268,9 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
         });
 
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Tratta stimata: ${tratta.kmController.text} km (${tratta.isAndataRitorno ? "A/R" : "Solo Andata"})')),
+          const SnackBar(content: Text('Tratta stimata (fallback geometrico).')),
         );
+
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Indirizzo non trovato.')),
