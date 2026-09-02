@@ -56,7 +56,6 @@ class TrattaViaggio {
   double rimborsoTratta = 0.0;
 }
 
-// Modello per memorizzare lo storico delle giornate salvate
 class GiornataSalvata {
   final DateTime data;
   final String stato;
@@ -107,7 +106,6 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
   double _speseExtraTotali = 0.0;
   double _totaleGiornaliero = 0.0;
 
-  // Archivio temporaneo in memoria di tutte le giornate salvate dall'utente
   final List<GiornataSalvata> _archivioGiornate = [];
 
   @override
@@ -286,9 +284,7 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
     });
   }
 
-  // Salvataggio della giornata corrente nell'archivio storico
   void _salvaGiornataCorrente() {
-    // Rimuove eventuali registrazioni precedenti fatte nello stesso giorno per evitare duplicati
     _archivioGiornate.removeWhere((g) => g.data.year == _dataSelezionata.year && g.data.month == _dataSelezionata.month && g.data.day == _dataSelezionata.day);
 
     _archivioGiornate.add(
@@ -314,7 +310,6 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
     );
   }
 
-  // Generazione e Stampa PDF basata sullo Storico Reale dell'Archivio
   Future<void> _stampaPdfRiepilogo(String tipoPeriodo) async {
     final pdf = pw.Document();
 
@@ -325,7 +320,6 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
       periodoTesto = 'Data: ${_dataSelezionata.day}/${_dataSelezionata.month}/${_dataSelezionata.year}';
       giornateFiltrate = _archivioGiornate.where((g) => g.data.year == _dataSelezionata.year && g.data.month == _dataSelezionata.month && g.data.day == _dataSelezionata.day).toList();
       
-      // Se la giornata corrente non è stata ancora salvata nell'archivio, usa i dati a schermo come anteprima
       if (giornateFiltrate.isEmpty) {
         giornateFiltrate.add(GiornataSalvata(
           data: _dataSelezionata,
@@ -343,20 +337,17 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
       DateTime fineSettimana = inizioSettimana.add(const Duration(days: 6));
       periodoTesto = 'Periodo: Dal ${inizioSettimana.day}/${inizioSettimana.month}/${inizioSettimana.year} al ${fineSettimana.day}/${fineSettimana.month}/${fineSettimana.year}';
 
-      // Filtra tutte le giornate salvate che cadono in questa settimana
       giornateFiltrate = _archivioGiornate.where((g) {
-        return g.data.isAfter(inizio.subtract(const Duration(days: 1))) && g.data.isBefore(fine.add(const Duration(days: 1)));
+        return g.data.isAfter(inizioSettimana.subtract(const Duration(days: 1))) && g.data.isBefore(fineSettimana.add(const Duration(days: 1)));
       }).toList();
     } else if (tipoPeriodo == 'Mensile') {
       periodoTesto = 'Mese di Riferimento: ${_dataSelezionata.month}/${_dataSelezionata.year}';
 
-      // Filtra tutte le giornate salvate che cadono in questo mese
       giornateFiltrate = _archivioGiornate.where((g) {
         return g.data.year == _dataSelezionata.year && g.data.month == _dataSelezionata.month;
       }).toList();
     }
 
-    // Calcolo totali complessivi del periodo filtrato
     double totaleAciPeriodo = giornateFiltrate.fold(0.0, (sum, item) => sum + item.rimborsoAci);
     double totaleExtraPeriodo = giornateFiltrate.fold(0.0, (sum, item) => sum + item.speseExtra);
     double totaleComplessivoPeriodo = giornateFiltrate.fold(0.0, (sum, item) => sum + item.totale);
@@ -367,7 +358,6 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
           return pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
-              // Intestazione Report
               pw.Row(
                 mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                 children: [
@@ -394,7 +384,6 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
                   pw.Paragraph(text: giornateFiltrate.first.attivita.isEmpty ? 'Nessuna attività registrata.' : giornateFiltrate.first.attivita),
                 ],
               ] else ...[
-                // Report Sintetico Settimanale o Dettagliato Mensile con l'elenco delle giornate archiviate
                 pw.SizedBox(height: 10),
                 pw.Text('Elenco Giornate Registrate nel Periodo:', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold)),
                 pw.SizedBox(height: 8),
