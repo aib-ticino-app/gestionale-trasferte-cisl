@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import 'custom_calendar_picker.dart';
 
 void main() {
   runApp(const GestionaleSindacatoApp());
@@ -55,14 +56,27 @@ class TrattaViaggio {
   double rimborsoTratta = 0.0;
 }
 
-// Modello di supporto per memorizzare i dati giornalieri storici (simulazione dati mese)
-class DatiGiornalierispec {
+// Modello per memorizzare lo storico delle giornate salvate
+class GiornataSalvata {
   final DateTime data;
   final String stato;
+  final String modelloAuto;
+  final String targa;
   final double rimborsoAci;
   final double speseExtra;
-  DatiGiornalierispec({required this.data, required this.stato, required this.rimborsoAci, required this.speseExtra});
-  double get totale => rimborsoAci + speseExtra;
+  final double totale;
+  final String attivita;
+
+  GiornataSalvata({
+    required this.data,
+    required this.stato,
+    required this.modelloAuto,
+    required this.targa,
+    required this.rimborsoAci,
+    required this.speseExtra,
+    required this.totale,
+    required this.attivita,
+  });
 }
 
 class SchermataGiornalieraPage extends StatefulWidget {
@@ -93,6 +107,9 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
   double _speseExtraTotali = 0.0;
   double _totaleGiornaliero = 0.0;
 
+  // Archivio temporaneo in memoria di tutte le giornate salvate dall'utente
+  final List<GiornataSalvata> _archivioGiornate = [];
+
   @override
   void initState() {
     super.initState();
@@ -108,31 +125,19 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
   }
 
   Future<void> _selezionaData(BuildContext context) async {
-    final DateTime? picked = await showDatePicker(
+    showDialog(
       context: context,
-      initialDate: _dataSelezionata,
-      firstDate: DateTime(2025),
-      lastDate: DateTime(2030),
-      locale: const Locale('it', 'IT'),
-      builder: (context, child) {
-        return Theme(
-          data: ThemeData.light().copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: Color(0xFF0B5335),
-              onPrimary: Colors.white,
-              surface: Colors.white,
-              onSurface: Colors.black,
-            ),
-          ),
-          child: child!,
-        );
-      },
+      builder: (context) => CustomCalendarPicker(
+        initialDate: _dataSelezionata,
+        firstDate: DateTime(2025, 1, 1),
+        lastDate: DateTime(2030, 12, 31),
+        onDateSelected: (DateTime newDate) {
+          setState(() {
+            _dataSelezionata = newDate;
+          });
+        },
+      ),
     );
-    if (picked != null && picked != _dataSelezionata) {
-      setState(() {
-        _dataSelezionata = picked;
-      });
-    }
   }
 
   Future<void> _calcolaKmOSRM(TrattaViaggio tratta) async {
@@ -281,20 +286,80 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
     });
   }
 
-  // Generazione e Stampa PDF Differenziata (Giornaliero, Settimanale, Mensile Dettagliato)
+  // Salvataggio della giornata corrente nell'archivio storico
+  void _salvaGiornataCorrente() {
+    // Rimuove eventuali registrazioni precedenti fatte nello stesso giorno per evitare duplicati
+    _archivioGiornate.removeWhere((g) => g.data.year == _dataSelezionata.year && g.data.month == _dataSelezionata.month && g.data.day == _dataSelezionata.day);
+
+    _archivioGiornate.add(
+      GiornataSalvata(
+        data: _dataSelezionata,
+        stato: _statoGiornata,
+        modelloAuto: _modelloAutoController.text,
+        targa: _targaController.text,
+        rimborsoAci: _rimborsoAciTotale,
+        speseExtra: _speseExtraTotali,
+        totale: _totaleGiornaliero,
+        attivita: _agendaController.text,
+      ),
+    );
+
+    String dataStr = '${_dataSelezionata.day}/${_dataSelezionata.month}/${_dataSelezionata.year}';
+    String msg = _statoGiornata != 'Lavorativa'
+        ? 'Giornata del $dataStr salvata come: $_statoGiornata'
+        : 'Giornata del $dataStr salvata con successo! Totale: € ${_totaleGiornaliero.toStringAsFixed(2)}';
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg)),
+    );
+  }
+
+  // Generazione e Stampa PDF basata sullo Storico Reale dell'Archivio
   Future<void> _stampaPdfRiepilogo(String tipoPeriodo) async {
     final pdf = pw.Document();
 
+    List<GiornataSalvata> giornateFiltrate = [];
     String periodoTesto = '';
+
     if (tipoPeriodo == 'Giornaliero') {
       periodoTesto = 'Data: ${_dataSelezionata.day}/${_dataSelezionata.month}/${_dataSelezionata.year}';
+      giornateFiltrate = _archivioGiornate.where((g) => g.data.year == _dataSelezionata.year && g.data.month == _dataSelezionata.month && g.data.day == _dataSelezionata.day).toList();
+      
+      // Se la giornata corrente non è stata ancora salvata nell'archivio, usa i dati a schermo come anteprima
+      if (giornateFiltrate.isEmpty) {
+        giornateFiltrate.add(GiornataSalvata(
+          data: _dataSelezionata,
+          stato: _statoGiornata,
+          modelloAuto: _modelloAutoController.text,
+          targa: _targaController.text,
+          rimborsoAci: _rimborsoAciTotale,
+          speseExtra: _speseExtraTotali,
+          totale: _totaleGiornaliero,
+          attivita: _agendaController.text,
+        ));
+      }
     } else if (tipoPeriodo == 'Settimanale') {
       DateTime inizioSettimana = _dataSelezionata.subtract(Duration(days: _dataSelezionata.weekday - 1));
       DateTime fineSettimana = inizioSettimana.add(const Duration(days: 6));
       periodoTesto = 'Periodo: Dal ${inizioSettimana.day}/${inizioSettimana.month}/${inizioSettimana.year} al ${fineSettimana.day}/${fineSettimana.month}/${fineSettimana.year}';
+
+      // Filtra tutte le giornate salvate che cadono in questa settimana
+      giornateFiltrate = _archivioGiornate.where((g) {
+        return g.data.isAfter(inizio.subtract(const Duration(days: 1))) && g.data.isBefore(fine.add(const Duration(days: 1)));
+      }).toList();
     } else if (tipoPeriodo == 'Mensile') {
       periodoTesto = 'Mese di Riferimento: ${_dataSelezionata.month}/${_dataSelezionata.year}';
+
+      // Filtra tutte le giornate salvate che cadono in questo mese
+      giornateFiltrate = _archivioGiornate.where((g) {
+        return g.data.year == _dataSelezionata.year && g.data.month == _dataSelezionata.month;
+      }).toList();
     }
+
+    // Calcolo totali complessivi del periodo filtrato
+    double totaleAciPeriodo = giornateFiltrate.fold(0.0, (sum, item) => sum + item.rimborsoAci);
+    double totaleExtraPeriodo = giornateFiltrate.fold(0.0, (sum, item) => sum + item.speseExtra);
+    double totaleComplessivoPeriodo = giornateFiltrate.fold(0.0, (sum, item) => sum + item.totale);
 
     pdf.addPage(
       pw.Page(
@@ -316,91 +381,66 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
               pw.SizedBox(height: 10),
               
               if (tipoPeriodo == 'Giornaliero') ...[
-                pw.Text('Stato Giornata: $_statoGiornata', style: const pw.TextStyle(fontSize: 12)),
-                pw.Text('Dati Veicolo: ${_modelloAutoController.text} (Targa: ${_targaController.text})', style: const pw.TextStyle(fontSize: 12)),
-                pw.Text('Alimentazione: $_alimentazioneSelezionata (${_costoAciKm.toStringAsFixed(2)} EUR/km)', style: const pw.TextStyle(fontSize: 12)),
-                pw.SizedBox(height: 15),
-                pw.Text('Dettaglio Economico:', style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
-                pw.Bullet(text: 'Rimborso Chilometrico ACI: EUR ${_rimborsoAciTotale.toStringAsFixed(2)}'),
-                pw.Bullet(text: 'Spese Extra (Parcheggi, Pedaggi, Pasti, Mezzi): EUR ${_speseExtraTotali.toStringAsFixed(2)}'),
-                pw.SizedBox(height: 15),
-                pw.Text('Attività Svolte:', style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
-                pw.Paragraph(text: _agendaController.text.isEmpty ? 'Nessuna attività registrata.' : _agendaController.text),
-                pw.SizedBox(height: 25),
-                pw.Container(
-                  padding: const pw.EdgeInsets.all(12),
-                  color: PdfColors.grey200,
-                  child: pw.Row(
-                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                    children: [
-                      pw.Text('TOTALE COMPLESSIVO:', style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
-                      pw.Text('EUR ${_totaleGiornaliero.toStringAsFixed(2)}', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
-                    ],
-                  ),
-                ),
-              ] else if (tipoPeriodo == 'Settimanale') ...[
-                // Report Sintetico Settimanale
-                pw.SizedBox(height: 10),
-                pw.Text('Riepilogo Contabile Sintetico delle Spese Sostenute:', style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
-                pw.SizedBox(height: 10),
-                pw.Bullet(text: 'Totale Rimborsi Chilometrici ACI: EUR ${_rimborsoAciTotale.toStringAsFixed(2)}'),
-                pw.Bullet(text: 'Totale Spese Extra Documentate: EUR ${_speseExtraTotali.toStringAsFixed(2)}'),
-                pw.SizedBox(height: 25),
-                pw.Container(
-                  padding: const pw.EdgeInsets.all(12),
-                  color: PdfColors.grey200,
-                  child: pw.Row(
-                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                    children: [
-                      pw.Text('TOTALE COMPLESSIVO:', style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
-                      pw.Text('EUR ${_totaleGiornaliero.toStringAsFixed(2)}', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
-                    ],
-                  ),
-                ),
+                if (giornateFiltrate.isNotEmpty) ...[
+                  pw.Text('Stato Giornata: ${giornateFiltrate.first.stato}', style: const pw.TextStyle(fontSize: 12)),
+                  pw.Text('Dati Veicolo: ${giornateFiltrate.first.modelloAuto} (Targa: ${giornateFiltrate.first.targa})', style: const pw.TextStyle(fontSize: 12)),
+                  pw.Text('Alimentazione: $_alimentazioneSelezionata (${_costoAciKm.toStringAsFixed(2)} EUR/km)', style: const pw.TextStyle(fontSize: 12)),
+                  pw.SizedBox(height: 15),
+                  pw.Text('Dettaglio Economico:', style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
+                  pw.Bullet(text: 'Rimborso Chilometrico ACI: EUR ${giornateFiltrate.first.rimborsoAci.toStringAsFixed(2)}'),
+                  pw.Bullet(text: 'Spese Extra (Parcheggi, Pedaggi, Pasti, Mezzi): EUR ${giornateFiltrate.first.speseExtra.toStringAsFixed(2)}'),
+                  pw.SizedBox(height: 15),
+                  pw.Text('Attività Svolte:', style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
+                  pw.Paragraph(text: giornateFiltrate.first.attivita.isEmpty ? 'Nessuna attività registrata.' : giornateFiltrate.first.attivita),
+                ],
               ] else ...[
-                // Report Mensile Dettagliato Giorno per Giorno (Solo Spese)
+                // Report Sintetico Settimanale o Dettagliato Mensile con l'elenco delle giornate archiviate
                 pw.SizedBox(height: 10),
-                pw.Text('Dettaglio Analitico Spese e Rimborsi (Giorno per Giorno):', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold)),
+                pw.Text('Elenco Giornate Registrate nel Periodo:', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold)),
                 pw.SizedBox(height: 8),
-                // Tabella dettagliata simulata con le giornate inserite o quella corrente
-                pw.Table(
-                  border: pw.TableBorder.all(color: PdfColors.grey400, width: 0.5),
+                giornateFiltrate.isEmpty
+                    ? pw.Paragraph(text: 'Nessuna giornata registrata in questo periodo. Ricordati di cliccare "Salva Giornata" dopo aver compilato i dati.')
+                    : pw.Table(
+                        border: pw.TableBorder.all(color: PdfColors.grey400, width: 0.5),
+                        children: [
+                          pw.TableRow(
+                            decoration: const pw.BoxDecoration(color: PdfColors.grey300),
+                            children: [
+                              pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Data', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))),
+                              pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Stato', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))),
+                              pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Rimborso ACI', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))),
+                              pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Spese Extra', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))),
+                              pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Totale', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))),
+                            ],
+                          ),
+                          ...giornateFiltrate.map((g) => pw.TableRow(
+                                children: [
+                                  pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('${g.data.day}/${g.data.month}/${g.data.year}', style: const pw.TextStyle(fontSize: 10))),
+                                  pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(g.stato, style: const pw.TextStyle(fontSize: 10))),
+                                  pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('EUR ${g.rimborsoAci.toStringAsFixed(2)}', style: const pw.TextStyle(fontSize: 10))),
+                                  pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('EUR ${g.speseExtra.toStringAsFixed(2)}', style: const pw.TextStyle(fontSize: 10))),
+                                  pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('EUR ${g.totale.toStringAsFixed(2)}', style: const pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold))),
+                                ],
+                              )),
+                        ],
+                      ),
+                pw.SizedBox(height: 15),
+                pw.Bullet(text: 'Totale Rimborsi Chilometrici ACI nel Periodo: EUR ${totaleAciPeriodo.toStringAsFixed(2)}'),
+                pw.Bullet(text: 'Totale Spese Extra nel Periodo: EUR ${totaleExtraPeriodo.toStringAsFixed(2)}'),
+              ],
+
+              pw.SizedBox(height: 25),
+              pw.Container(
+                padding: const pw.EdgeInsets.all(12),
+                color: PdfColors.grey200,
+                child: pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                   children: [
-                    pw.TableRow(
-                      decoration: const pw.BoxDecoration(color: PdfColors.grey300),
-                      children: [
-                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Data', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))),
-                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Stato', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))),
-                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Rimborso ACI', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))),
-                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Spese Extra', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))),
-                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Totale Giorno', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))),
-                      ],
-                    ),
-                    // Riga della giornata corrente come esempio inserito nel mese
-                    pw.TableRow(
-                      children: [
-                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('${_dataSelezionata.day}/${_dataSelezionata.month}/${_dataSelezionata.year}', style: const pw.TextStyle(fontSize: 10))),
-                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(_statoGiornata, style: const pw.TextStyle(fontSize: 10))),
-                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('EUR ${_rimborsoAciTotale.toStringAsFixed(2)}', style: const pw.TextStyle(fontSize: 10))),
-                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('EUR ${_speseExtraTotali.toStringAsFixed(2)}', style: const pw.TextStyle(fontSize: 10))),
-                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('EUR ${_totaleGiornaliero.toStringAsFixed(2)}', style: const pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold))),
-                      ],
-                    ),
+                    pw.Text('TOTALE COMPLESSIVO PERIODALE:', style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold)),
+                    pw.Text('EUR ${totaleComplessivoPeriodo.toStringAsFixed(2)}', style: pw.TextStyle(fontSize: 15, fontWeight: pw.FontWeight.bold)),
                   ],
                 ),
-                pw.SizedBox(height: 20),
-                pw.Container(
-                  padding: const pw.EdgeInsets.all(12),
-                  color: PdfColors.grey200,
-                  child: pw.Row(
-                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                    children: [
-                      pw.Text('TOTALE MENSILE COMPLESSIVO:', style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold)),
-                      pw.Text('EUR ${_totaleGiornaliero.toStringAsFixed(2)}', style: pw.TextStyle(fontSize: 15, fontWeight: pw.FontWeight.bold)),
-                    ],
-                  ),
-                ),
-              ],
+              ),
             ],
           );
         },
@@ -805,16 +845,7 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
                   backgroundColor: isNonLavorativo ? Colors.orange.shade800 : cislGreen,
                   foregroundColor: Colors.white,
                 ),
-                onPressed: () {
-                  String dataStr = '${_dataSelezionata.day}/${_dataSelezionata.month}/${_dataSelezionata.year}';
-                  String msg = isNonLavorativo 
-                      ? 'Giornata del $dataStr salvata come: $_statoGiornata' 
-                      : 'Giornata del $dataStr salvata! Totale: € ${_totaleGiornaliero.toStringAsFixed(2)}';
-                  
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(msg)),
-                  );
-                },
+                onPressed: _salvaGiornataCorrente,
                 icon: Icon(isNonLavorativo ? Icons.event_busy : Icons.save),
                 label: Text(
                   isNonLavorativo ? 'Salva Giornata ($_statoGiornata)' : 'Salva Giornata Lavorativa',
