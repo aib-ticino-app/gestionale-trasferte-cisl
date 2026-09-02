@@ -620,7 +620,7 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
                         isDense: true,
                         prefixIcon: Icon(Icons.event_note),
                       ),
-                      items: <String>['Lavorativa', 'Ferie', 'Malattia', 'Assenza / Permesso']
+                      items: <String>['Lavorativa', 'Ferie', 'Malattia', 'Assenza / Permesso', 'Ex Festività', 'Festività']
                           .map<DropdownMenuItem<String>>((String value) {
                         return DropdownMenuItem<String>(
                           value: value,
@@ -630,7 +630,7 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
                       onChanged: (String? newValue) {
                         setState(() {
                           _statoGiornata = newValue ?? 'Lavorativa';
-                          if (_statoGiornata != 'Lavorativa') {
+                          if (_statoGiornata != 'Lavorativa' && _statoGiornata != 'Ex Festività' && _statoGiornata != 'Festività') {
                             _azzeraCampiLavorativi();
                           }
                         });
