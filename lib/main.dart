@@ -240,8 +240,8 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
         double raggioTerraKm = 6371.0;
         double distanzaLineaDaria = raggioTerraKm * c;
 
-        // Moltiplichiamo per 1.3 (coefficiente stradale standard per convertire la linea d'aria nei km reali percorsi su strada in Italia)
-        double kmRealiStrada = distanzaLineaDaria * 1.3;
+        // Moltiplichiamo per 1.2 (coefficiente stradale standard per convertire la linea d'aria nei km reali percorsi su strada in Italia)
+        double kmRealiStrada = distanzaLineaDaria * 1.2;
 
         setState(() {
           tratta.kmSolaAndata = kmRealiStrada;
