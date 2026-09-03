@@ -67,6 +67,8 @@ class GiornataSalvata {
   final List<TrattDataBackup> tratteDettaglio;
   final double rimborsoAci;
   final double speseExtra;
+  final bool haBuonoPasto;
+  final double buonoPastoImporto;
   final double totale;
   final String attivita;
 
@@ -80,6 +82,8 @@ class GiornataSalvata {
     required this.tratteDettaglio,
     required this.rimborsoAci,
     required this.speseExtra,
+    required this.haBuonoPasto,
+    required this.buonoPastoImporto,
     required this.totale,
     required this.attivita,
   });
@@ -118,6 +122,9 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
   final TextEditingController _pastoController = TextEditingController();
   final TextEditingController _mezziController = TextEditingController();
   final TextEditingController _agendaController = TextEditingController();
+  
+  bool _haBuonoPasto = false;
+  static const double _valoreBuonoPasto = 5.70;
 
   double _rimborsoAciTotale = 0.0;
   double _speseExtraTotali = 0.0;
@@ -152,6 +159,8 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
         tratteDettaglio: [],
         rimborsoAci: 0,
         speseExtra: 0,
+        haBuonoPasto: false,
+        buonoPastoImporto: 0,
         totale: 0,
         attivita: '',
       ),
@@ -166,6 +175,7 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
         _alimentazioneSelezionata = salvata.alimentazione;
         _costoAciKm = salvata.costoAciKm;
         _agendaController.text = salvata.attivita;
+        _haBuonoPasto = salvata.haBuonoPasto;
 
         _tratte = salvata.tratteDettaglio.map((t) {
           var tv = TrattaViaggio();
@@ -263,7 +273,7 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
           }
         }
 
-        // Fallback geometrico aggiornato con coefficiente 1.1 per Google Maps
+        // Fallback geometrico con coefficiente 1.1 per Google Maps
         double dLat = (p2.lat - p1.lat) * pi / 180;
         double dLon = (p2.lon - p1.lon) * pi / 180;
         double a = sin(dLat / 2) * sin(dLat / 2) + cos(p1.lat * pi / 180) * cos(p2.lat * pi / 180) * sin(dLon / 2) * sin(dLon / 2);
@@ -334,10 +344,11 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
     double pedaggio = double.tryParse(_pedaggioController.text.replaceAll(',', '.')) ?? 0.0;
     double pasto = double.tryParse(_pastoController.text.replaceAll(',', '.')) ?? 0.0;
     double mezzi = double.tryParse(_mezziController.text.replaceAll(',', '.')) ?? 0.0;
+    double buonoPastoValore = _haBuonoPasto ? _valoreBuonoPasto : 0.0;
 
     setState(() {
       _rimborsoAciTotale = kmTotali * _costoAciKm;
-      _speseExtraTotali = parcheggio + pedaggio + pasto + mezzi;
+      _speseExtraTotali = parcheggio + pedaggio + pasto + mezzi + buonoPastoValore;
       _totaleGiornaliero = _rimborsoAciTotale + _speseExtraTotali;
     });
   }
@@ -357,6 +368,7 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
     _pastoController.clear();
     _mezziController.clear();
     _agendaController.clear();
+    _haBuonoPasto = false;
     _totaleGiornaliero = 0.0;
     _rimborsoAciTotale = 0.0;
     _speseExtraTotali = 0.0;
@@ -400,6 +412,8 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
         tratteDettaglio: tratteBackup,
         rimborsoAci: _rimborsoAciTotale,
         speseExtra: _speseExtraTotali,
+        haBuonoPasto: _haBuonoPasto,
+        buonoPastoImporto: _haBuonoPasto ? _valoreBuonoPasto : 0.0,
         totale: _totaleGiornaliero,
         attivita: _agendaController.text,
       ),
@@ -504,65 +518,83 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
 
     final pdf = pw.Document();
     pdf.addPage(
-      pw.Page(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(32),
         build: (pw.Context context) {
-          return pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              pw.Row(
+          return [
+            pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              children: [
+                pw.Text('CISL FP DEI LAGHI', style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold)),
+                pw.Text('Report Trasferte e Attività', style: pw.TextStyle(fontSize: 14)),
+              ],
+            ),
+            pw.Divider(thickness: 2),
+            pw.SizedBox(height: 10),
+            pw.Text('Periodo: Dal ${start.day}/${start.month}/${start.year} al ${end.day}/${end.month}/${end.year}', style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
+            pw.SizedBox(height: 15),
+            filtrate.isEmpty
+                ? pw.Paragraph(text: 'Nessuna giornata registrata in questo intervallo.')
+                : pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Table(
+                        border: pw.TableBorder.all(color: PdfColors.grey400, width: 0.5),
+                        children: [
+                          pw.TableRow(
+                            decoration: const pw.BoxDecoration(color: PdfColors.grey300),
+                            children: [
+                              pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Data', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))),
+                              pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Stato', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))),
+                              pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Rimborso ACI', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))),
+                              pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Spese Extra', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))),
+                              pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Totale', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))),
+                            ],
+                          ),
+                          ...filtrate.map((g) => pw.TableRow(
+                                children: [
+                                  pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('${g.data.day}/${g.data.month}/${g.data.year}', style: const pw.TextStyle(fontSize: 10))),
+                                  pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(g.stato, style: const pw.TextStyle(fontSize: 10))),
+                                  pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('EUR ${g.rimborsoAci.toStringAsFixed(2)}', style: const pw.TextStyle(fontSize: 10))),
+                                  pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('EUR ${g.speseExtra.toStringAsFixed(2)} ${g.haBuonoPasto ? "(incl. Buono Pasto)" : ""}', style: const pw.TextStyle(fontSize: 10))),
+                                  pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('EUR ${g.totale.toStringAsFixed(2)}', style: const pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold))),
+                                ],
+                              )),
+                        ],
+                      ),
+                      pw.SizedBox(height: 15),
+                      // Sezione Dettaglio Agenda Attività per ogni giorno registrato
+                      pw.Text('Dettaglio Attività Sindacali e Agenda:', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold)),
+                      pw.SizedBox(height: 5),
+                      ...filtrate.where((g) => g.attivita.isNotEmpty).map((g) => pw.Padding(
+                            padding: const pw.EdgeInsets.only(bottom: 6),
+                            child: pw.Column(
+                              crossAxisAlignment: pw.CrossAxisAlignment.start,
+                              children: [
+                                pw.Text('${g.data.day}/${g.data.month}/${g.data.year} (${g.stato}):', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColors.grey700)),
+                                pw.Text(g.attivita, style: const pw.TextStyle(fontSize: 10)),
+                              ],
+                            ),
+                          )),
+                    ],
+                  ),
+            pw.SizedBox(height: 15),
+            pw.Bullet(text: 'Totale Rimborsi ACI: EUR ${totAci.toStringAsFixed(2)}'),
+            pw.Bullet(text: 'Totale Spese Extra (inclusi Buoni Pasto): EUR ${totExtra.toStringAsFixed(2)}'),
+            pw.SizedBox(height: 20),
+            pw.Container(
+              padding: const pw.EdgeInsets.all(12),
+              color: PdfColors.grey200,
+              child: pw.Row(
                 mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                 children: [
-                  pw.Text('CISL FP DEI LAGHI', style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold)),
-                  pw.Text('Report Intervallo Personalizzato', style: pw.TextStyle(fontSize: 14)),
+                  pw.Text('TOTALE COMPLESSIVO:', style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold)),
+                  pw.Text('EUR ${totComplessivo.toStringAsFixed(2)}', style: pw.TextStyle(fontSize: 15, fontWeight: pw.FontWeight.bold)),
                 ],
               ),
-              pw.Divider(thickness: 2),
-              pw.SizedBox(height: 10),
-              pw.Text('Dal ${start.day}/${start.month}/${start.year} al ${end.day}/${end.month}/${end.year}', style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
-              pw.SizedBox(height: 15),
-              filtrate.isEmpty
-                  ? pw.Paragraph(text: 'Nessuna giornata registrata in questo intervallo.')
-                  : pw.Table(
-                      border: pw.TableBorder.all(color: PdfColors.grey400, width: 0.5),
-                      children: [
-                        pw.TableRow(
-                          decoration: const pw.BoxDecoration(color: PdfColors.grey300),
-                          children: [
-                            pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Data', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))),
-                            pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Stato', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))),
-                            pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Rimborso ACI', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))),
-                            pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Spese Extra', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))),
-                            pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Totale', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))),
-                          ],
-                        ),
-                        ...filtrate.map((g) => pw.TableRow(
-                              children: [
-                                pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('${g.data.day}/${g.data.month}/${g.data.year}', style: const pw.TextStyle(fontSize: 10))),
-                                pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(g.stato, style: const pw.TextStyle(fontSize: 10))),
-                                pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('EUR ${g.rimborsoAci.toStringAsFixed(2)}', style: const pw.TextStyle(fontSize: 10))),
-                                pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('EUR ${g.speseExtra.toStringAsFixed(2)}', style: const pw.TextStyle(fontSize: 10))),
-                                pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('EUR ${g.totale.toStringAsFixed(2)}', style: const pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold))),
-                              ],
-                            )),
-                      ],
-                    ),
-              pw.SizedBox(height: 15),
-              pw.Bullet(text: 'Totale Rimborsi ACI: EUR ${totAci.toStringAsFixed(2)}'),
-              pw.Bullet(text: 'Totale Spese Extra: EUR ${totExtra.toStringAsFixed(2)}'),
-              pw.SizedBox(height: 20),
-              pw.Container(
-                padding: const pw.EdgeInsets.all(12),
-                color: PdfColors.grey200,
-                child: pw.Row(
-                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                  children: [
-                    pw.Text('TOTALE COMPLESSIVO:', style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold)),
-                    pw.Text('EUR ${totComplessivo.toStringAsFixed(2)}', style: pw.TextStyle(fontSize: 15, fontWeight: pw.FontWeight.bold)),
-                  ],
-                ),
-              ),
-            ],
-          );
+            ),
+          ];
         },
       ),
     );
@@ -881,6 +913,20 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: 10),
+            CheckboxListTile(
+              title: const Text('Buono Pasto (€ 5,70)', style: TextStyle(fontWeight: FontWeight.bold)),
+              value: _haBuonoPasto,
+              activeColor: cislGreen,
+              contentPadding: EdgeInsets.zero,
+              controlAffinity: ListTileControlAffinity.leading,
+              onChanged: isNonLavorativo ? null : (bool? value) {
+                setState(() {
+                  _haBuonoPasto = value ?? false;
+                  _calcolaTotali();
+                });
+              },
             ),
             const SizedBox(height: 20),
 
