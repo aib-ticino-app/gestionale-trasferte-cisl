@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:http/http.dart' as http;
@@ -6,7 +7,6 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'custom_calendar_picker.dart';
-import 'dart:math';
 
 void main() {
   runApp(const GestionaleSindacatoApp());
@@ -139,7 +139,6 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
     tratta.kmController.addListener(_calcolaTotali);
   }
 
-  // Carica i dati salvati per la data selezionata se presenti in archivio
   void _caricaDatiGiorno(DateTime data) {
     var salvata = _archivioGiornate.firstWhere(
       (g) => g.data.year == data.year && g.data.month == data.month && g.data.day == data.day,
@@ -207,7 +206,22 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
     );
   }
 
- Future<void> _calcolaKmOSRM(TrattaViaggio tratta) async {
+  Future<Coord?> _getCoordinateDaIndirizzo(String indirizzo) async {
+    final queryCorretta = indirizzo.toLowerCase().contains('italia') ? indirizzo : '$indirizzo, Italia';
+    final url = Uri.parse('https://nominatim.openstreetmap.org/search?q=${Uri.encodeComponent(queryCorretta)}&format=json&limit=1&countrycodes=it');
+    
+    final response = await http.get(url, headers: {'User-Agent': 'GestionaleSindacatoApp'});
+    
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      if (data.isNotEmpty) {
+        return Coord(double.parse(data[0]['lat']), double.parse(data[0]['lon']));
+      }
+    }
+    return null;
+  }
+
+  Future<void> _calcolaKmOSRM(TrattaViaggio tratta) async {
     String partenza = tratta.partenzaController.text.trim();
     String arrivo = tratta.arrivoController.text.trim();
 
@@ -223,20 +237,16 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
       Coord? p2 = await _getCoordinateDaIndirizzo(arrivo);
 
       if (p1 != null && p2 != null) {
-        // Usiamo OpenRouteService per il calcolo stradale reale (profilo driving-car)
-        // Nota: in futuro puoi inserire una tua API key gratuita di openrouteservice.org al posto della stringa di test
-        const String apiKey = '5b3ce3597851110001cf6248a3b8d30e380a40239cfdb2bc5527a4d3'; 
-        
         final url = Uri.parse(
-          'https://api.openrouteservice.org/v2/directions/driving-car?api_key=$apiKey&start=${p1.lon},${p1.lat}&end=${p2.lon},${p2.lat}'
+          'https://routing.openstreetmap.de/routed-car/route/v1/driving/${p1.lon},${p1.lat};${p2.lon},${p2.lat}?overview=false'
         );
-
+        
         final response = await http.get(url);
 
         if (response.statusCode == 200) {
           final data = json.decode(response.body);
-          if (data['features'] != null && data['features'].isNotEmpty) {
-            double metri = data['features'][0]['properties']['segments'][0]['distance'].toDouble();
+          if (data['routes'] != null && data['routes'].isNotEmpty) {
+            double metri = data['routes'][0]['distance'].toDouble();
             double kmReali = metri / 1000.0;
 
             setState(() {
@@ -247,18 +257,18 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
             });
 
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Tratta calcolata con OpenRouteService: ${tratta.kmController.text} km')),
+              SnackBar(content: Text('Tratta calcolata: ${tratta.kmController.text} km')),
             );
             return;
           }
         }
 
-        // Fallback geometrico di sicurezza nel caso l'API risponda con un limite superato
+        // Fallback geometrico
         double dLat = (p2.lat - p1.lat) * pi / 180;
         double dLon = (p2.lon - p1.lon) * pi / 180;
         double a = sin(dLat / 2) * sin(dLat / 2) + cos(p1.lat * pi / 180) * cos(p2.lat * pi / 180) * sin(dLon / 2) * sin(dLon / 2);
         double c = 2 * atan2(sqrt(a), sqrt(1 - a));
-        double kmRealiStrada = (6371.0 * c) * 1.35; // Coefficiente calibrato
+        double kmRealiStrada = (6371.0 * c) * 1.3;
 
         setState(() {
           tratta.kmSolaAndata = kmRealiStrada;
@@ -290,19 +300,6 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
       }
       _calcolaTotali();
     });
-  }
-
-  Future<Coord?> _getCoordinateDaIndirizzo(String indirizzo) async {
-    final url = Uri.parse('https://nominatim.openstreetmap.org/search?q=${Uri.encodeComponent(indirizzo)}&format=json&limit=1');
-    final response = await http.get(url, headers: {'User-Agent': 'GestionaleSindacatoApp'});
-    
-    if (response.statusCode == 200) {
-      final data = json.decode(response.body);
-      if (data.isNotEmpty) {
-        return Coord(double.parse(data[0]['lat']), double.parse(data[0]['lon']));
-      }
-    }
-    return null;
   }
 
   void _aggiungiTratta() {
@@ -413,7 +410,6 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
     );
   }
 
-  // Finestra di dialogo per selezionare un intervallo personalizzato "Da data a data"
   Future<void> _mostraSelettoreIntervalloStampa() async {
     DateTime dataInizio = DateTime.now().subtract(const Duration(days: 7));
     DateTime dataFine = DateTime.now();
@@ -493,7 +489,6 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
   }
 
   Future<void> _stampaPdfIntervallo(DateTime inizio, DateTime fine) async {
-    // Normalizza le date a inizio/fine giornata per il confronto corretto
     DateTime start = DateTime(inizio.year, inizio.month, inizio.day);
     DateTime end = DateTime(fine.year, fine.month, fine.day, 23, 59, 59);
 

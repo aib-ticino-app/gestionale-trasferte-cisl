@@ -1,4 +1,4 @@
- import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 
 class CustomCalendarPicker extends StatefulWidget {
   final DateTime initialDate;
@@ -24,7 +24,6 @@ class _CustomCalendarPickerState extends State<CustomCalendarPicker> {
   late DateTime _displayedMonth;
   late DateTime _selectedDate;
 
-  // Stato delle festività (configurabili dal pulsante Festività)
   bool _festivitaattive = true;
   final Map<String, bool> _festeAbilitate = {
     'Capodanno': true,
@@ -50,7 +49,6 @@ class _CustomCalendarPickerState extends State<CustomCalendarPicker> {
     _displayedMonth = DateTime(_selectedDate.year, _selectedDate.month);
   }
 
-  // Calcolo della data di Pasqua per un dato anno
   DateTime _calcolaPasqua(int year) {
     int a = year % 19;
     int b = year ~/ 100;
@@ -106,7 +104,6 @@ class _CustomCalendarPickerState extends State<CustomCalendarPicker> {
         d.year == date.year && d.month == date.month && d.day == date.day);
   }
 
-  // Calcolo del numero della settimana (ISO 8601)
   int _numeroSettimana(DateTime date) {
     DateTime firstDayOfYear = DateTime(date.year, 1, 1);
     int days = date.difference(firstDayOfYear).inDays;
@@ -241,7 +238,6 @@ class _CustomCalendarPickerState extends State<CustomCalendarPicker> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Riga superiore: Pulsante Festività + Frecce Mese + Frecce Anno
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -305,8 +301,6 @@ class _CustomCalendarPickerState extends State<CustomCalendarPicker> {
               ],
             ),
             const SizedBox(height: 8),
-
-            // Tendine Selezione Mese e Anno + Testo Mese Anno
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -360,12 +354,8 @@ class _CustomCalendarPickerState extends State<CustomCalendarPicker> {
               ],
             ),
             const Divider(thickness: 2),
-
-            // Tabella Calendario con colonna N.S. a sinistra
             _buildCalendarGridStyle(),
             const SizedBox(height: 10),
-
-            // Pulsante Oggi in basso
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
@@ -397,12 +387,10 @@ class _CustomCalendarPickerState extends State<CustomCalendarPicker> {
     int month = _displayedMonth.month;
 
     DateTime firstDayOfMonth = DateTime(year, month, 1);
-    int weekdayOffset = firstDayOfMonth.weekday - 1; // 0 per Lunedì
+    int weekdayOffset = firstDayOfMonth.weekday - 1;
 
-    // Calcoliamo i giorni da mostrare in una griglia di 6 righe x 7 giorni
     List<Widget> rows = [];
 
-    // Intestazione giorni settimana
     rows.add(
       Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -423,7 +411,7 @@ class _CustomCalendarPickerState extends State<CustomCalendarPicker> {
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
-                  color: isDom ? Colors.red : (isSab ? Colors.black87 : Colors.black87),
+                  color: isDom ? Colors.red : Colors.black87,
                 ),
               ),
             );
@@ -439,8 +427,7 @@ class _CustomCalendarPickerState extends State<CustomCalendarPicker> {
       int weekNum = _numeroSettimana(currentIterator);
       List<Widget> weekDays = [];
 
-      // Colonna Settimana (N.S.)
-      weekDays.appendIfCustom(
+      weekDays.add(
         Container(
           width: 32,
           height: 32,
@@ -509,11 +496,5 @@ class _CustomCalendarPickerState extends State<CustomCalendarPicker> {
     }
 
     return Column(children: rows);
-  }
-}
-
-extension on List<Widget> {
-  void appendIfCustom(Widget widget) {
-    add(widget);
   }
 }
