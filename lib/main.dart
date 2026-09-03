@@ -92,6 +92,103 @@ class Autoveicolo {
   final String alimentazione;
 
   Autoveicolo({required this.modello, required this.targa, required this.alimentazione});
+
+  Map<String, dynamic> toJson() => {'modello': modello, 'targa': targa, 'alimentazione': alimentazione};
+  factory Autoveicolo.fromJson(Map<String, dynamic> json) => Autoveicolo(
+        modello: json['modello'] ?? '',
+        targa: json['targa'] ?? '',
+        alimentazione: json['alimentazione'] ?? '',
+      );
+}
+
+class TrattDataBackup {
+  final String partenza;
+  final String arrivo;
+  final bool isAndataRitorno;
+  final String km;
+  final double rimborso;
+
+  TrattDataBackup({required this.partenza, required this.arrivo, required this.isAndataRitorno, required this.km, required this.rimborso});
+
+  Map<String, dynamic> toJson() => {
+        'partenza': partenza,
+        'arrivo': arrivo,
+        'isAndataRitorno': isAndataRitorno,
+        'km': km,
+        'rimborso': rimborso,
+      };
+
+  factory TrattDataBackup.fromJson(Map<String, dynamic> json) => TrattDataBackup(
+        partenza: json['partenza'] ?? '',
+        arrivo: json['arrivo'] ?? '',
+        isAndataRitorno: json['isAndataRitorno'] ?? false,
+        km: json['km'] ?? '',
+        rimborso: json['rimborso']?.toDouble() ?? 0.0,
+      );
+}
+
+class GiornataSalvata {
+  final DateTime data;
+  final String stato;
+  final String modelloAuto;
+  final String targa;
+  final String alimentazione;
+  final double costoAciKm;
+  final List<TrattDataBackup> tratteDettaglio;
+  final double rimborsoAci;
+  final double speseExtra;
+  final bool haBuonoPasto;
+  final double buonoPastoImporto;
+  final double totale;
+  final String attivita;
+
+  GiornataSalvata({
+    required this.data,
+    required this.stato,
+    required this.modelloAuto,
+    required this.targa,
+    required this.alimentazione,
+    required this.costoAciKm,
+    required this.tratteDettaglio,
+    required this.rimborsoAci,
+    required this.speseExtra,
+    required this.haBuonoPasto,
+    required this.buonoPastoImporto,
+    required this.totale,
+    required this.attivita,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'data': data.toIso8601String(),
+        'stato': stato,
+        'modelloAuto': modelloAuto,
+        'targa': targa,
+        'alimentazione': alimentazione,
+        'costoAciKm': costoAciKm,
+        'tratteDettaglio': tratteDettaglio.map((t) => t.toJson()).toList(),
+        'rimborsoAci': rimborsoAci,
+        'speseExtra': speseExtra,
+        'haBuonoPasto': haBuonoPasto,
+        'buonoPastoImporto': buonoPastoImporto,
+        'totale': totale,
+        'attivita': attivita,
+      };
+
+  factory GiornataSalvata.fromJson(Map<String, dynamic> json) => GiornataSalvata(
+        data: DateTime.parse(json['data']),
+        stato: json['stato'] ?? 'Lavorativa',
+        modelloAuto: json['modelloAuto'] ?? '',
+        targa: json['targa'] ?? '',
+        alimentazione: json['alimentazione'] ?? '',
+        costoAciKm: json['costoAciKm']?.toDouble() ?? 0.45,
+        tratteDettaglio: (json['tratteDettaglio'] as List?)?.map((t) => TrattDataBackup.fromJson(t)).toList() ?? [],
+        rimborsoAci: json['rimborsoAci']?.toDouble() ?? 0.0,
+        speseExtra: json['speseExtra']?.toDouble() ?? 0.0,
+        haBuonoPasto: json['haBuonoPasto'] ?? false,
+        buonoPastoImporto: json['buonoPastoImporto']?.toDouble() ?? 0.0,
+        totale: json['totale']?.toDouble() ?? 0.0,
+        attivita: json['attivita'] ?? '',
+      );
 }
 
 class SchermataAutenticazionePage extends StatefulWidget {
@@ -442,7 +539,7 @@ class _SchermataAutenticazionePageState extends State<SchermataAutenticazionePag
   }
 }
 
-// --- CALENDARIO MODERNO CON SELEZIONE SETTIMANA N.S. E TASTO CHIUDI ---
+// --- CALENDARIO MODERNO CON SELEZIONE SETTIMANA E CHIUDI ---
 class CustomCalendarPicker extends StatefulWidget {
   final DateTime initialDate;
   final DateTime firstDate;
@@ -575,9 +672,7 @@ class _CustomCalendarPickerState extends State<CustomCalendarPicker> {
   Widget build(BuildContext context) {
     const Color cislGreen = Color(0xFF0B5335);
 
-    int daysInMonth = DateTime(_currentMonth.year, _currentMonth.month + 1, 0).day;
     int firstDayWeekday = DateTime(_currentMonth.year, _currentMonth.month, 1).weekday;
-
     List<Widget> gridRows = [];
 
     List<String> weekDays = ['N.S.', 'LUN', 'MAR', 'MER', 'GIO', 'VEN', 'SAB', 'DOM'];
@@ -614,10 +709,8 @@ class _CustomCalendarPickerState extends State<CustomCalendarPicker> {
     for (int weekIndex = 0; weekIndex < 6; weekIndex++) {
       int numeroSettimana = _getNumeroSettimana(currentWeekTracker);
       List<Widget> rowCells = [];
-
       DateTime mondayOfWeek = currentWeekTracker;
 
-      // Colonna N.S. cliccabile per selezionare l'inizio della settimana (o il lunedì)
       rowCells.add(
         GestureDetector(
           onTap: () {
@@ -766,7 +859,6 @@ class _CustomCalendarPickerState extends State<CustomCalendarPicker> {
             const Divider(height: 20),
             Column(children: gridRows),
             const SizedBox(height: 12),
-            // Riga inferiore con Pulsante Oggi e Pulsante Chiudi ben visibili
             Row(
               children: [
                 Expanded(
@@ -833,48 +925,6 @@ class TrattaViaggio {
   double rimborsoTratta = 0.0;
 }
 
-class GiornataSalvata {
-  final DateTime data;
-  final String stato;
-  final String modelloAuto;
-  final String targa;
-  final String alimentazione;
-  final double costoAciKm;
-  final List<TrattDataBackup> tratteDettaglio;
-  final double rimborsoAci;
-  final double speseExtra;
-  final bool haBuonoPasto;
-  final double buonoPastoImporto;
-  final double totale;
-  final String attivita;
-
-  GiornataSalvata({
-    required this.data,
-    required this.stato,
-    required this.modelloAuto,
-    required this.targa,
-    required this.alimentazione,
-    required this.costoAciKm,
-    required this.tratteDettaglio,
-    required this.rimborsoAci,
-    required this.speseExtra,
-    required this.haBuonoPasto,
-    required this.buonoPastoImporto,
-    required this.totale,
-    required this.attivita,
-  });
-}
-
-class TrattDataBackup {
-  final String partenza;
-  final String arrivo;
-  final bool isAndataRitorno;
-  final String km;
-  final double rimborso;
-
-  TrattDataBackup({required this.partenza, required this.arrivo, required this.isAndataRitorno, required this.km, required this.rimborso});
-}
-
 class SchermataGiornalieraPage extends StatefulWidget {
   final ProfiloUtente utente;
   const SchermataGiornalieraPage({super.key, required this.utente});
@@ -893,7 +943,6 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
   double _costoAciKm = 0.45;
 
   final List<Autoveicolo> _parcoAuto = [];
-
   List<TrattaViaggio> _tratte = [TrattaViaggio()];
 
   final TextEditingController _parcheggioController = TextEditingController();
@@ -909,7 +958,7 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
   double _speseExtraTotali = 0.0;
   double _totaleGiornaliero = 0.0;
 
-  final List<GiornataSalvata> _archivioGiornate = [];
+  List<GiornataSalvata> _archivioGiornate = [];
 
   @override
   void initState() {
@@ -919,6 +968,40 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
     _pedaggioController.addListener(_calcolaTotali);
     _pastoController.addListener(_calcolaTotali);
     _mezziController.addListener(_calcolaTotali);
+    _caricaDatiPersistenti();
+  }
+
+  Future<void> _caricaDatiPersistenti() async {
+    final prefs = await SharedPreferences.getInstance();
+    
+    // Caricamento Parco Auto
+    String? autoJsonStr = prefs.getString('parco_auto_${widget.utente.userId}');
+    if (autoJsonStr != null) {
+      List decoded = json.decode(autoJsonStr);
+      _parcoAuto.clear();
+      _parcoAuto.addAll(decoded.map((e) => Autoveicolo.fromJson(e)));
+    }
+
+    // Caricamento Archivio Giornate
+    String? giornateJsonStr = prefs.getString('archivio_giornate_${widget.utente.userId}');
+    if (giornateJsonStr != null) {
+      List decoded = json.decode(giornateJsonStr);
+      _archivioGiornate = decoded.map((e) => GiornataSalvata.fromJson(e)).toList();
+    }
+
+    _caricaDatiGiorno(_dataSelezionata);
+  }
+
+  Future<void> _salvaDatiPersistenti() async {
+    final prefs = await SharedPreferences.getInstance();
+    
+    // Salva Parco Auto
+    List<Map<String, dynamic>> autoEncoded = _parcoAuto.map((a) => a.toJson()).toList();
+    await prefs.setString('parco_auto_${widget.utente.userId}', json.encode(autoEncoded));
+
+    // Salva Archivio Giornate
+    List<Map<String, dynamic>> giornateEncoded = _archivioGiornate.map((g) => g.toJson()).toList();
+    await prefs.setString('archivio_giornate_${widget.utente.userId}', json.encode(giornateEncoded));
   }
 
   void _aggiornaAscoltatoriTratta(TrattaViaggio tratta) {
@@ -978,11 +1061,12 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
     });
   }
 
-  void _eliminaRegistrazioneGiorno(DateTime data) {
+  Future<void> _eliminaRegistrazioneGiorno(DateTime data) async {
     setState(() {
       _archivioGiornate.removeWhere((g) => g.data.year == data.year && g.data.month == data.month && g.data.day == data.day);
       _caricaDatiGiorno(data);
     });
+    await _salvaDatiPersistenti();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Registrazione del ${data.day}/${data.month}/${data.year} rimossa.')),
     );
@@ -1042,11 +1126,12 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
                               subtitle: Text('Alimentazione: ${auto.alimentazione}'),
                               trailing: IconButton(
                                 icon: const Icon(Icons.delete, color: Colors.red, size: 20),
-                                onPressed: () {
+                                onPressed: () async {
                                   setDialogState(() {
                                     _parcoAuto.removeAt(index);
                                   });
                                   setState(() {});
+                                  await _salvaDatiPersistenti();
                                 },
                               ),
                             );
@@ -1079,7 +1164,7 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
                       const SizedBox(height: 10),
                       ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0B5335), foregroundColor: Colors.white),
-                        onPressed: () {
+                        onPressed: () async {
                           if (modCtrl.text.isNotEmpty && targCtrl.text.isNotEmpty) {
                             setDialogState(() {
                               _parcoAuto.add(Autoveicolo(modello: modCtrl.text.trim(), targa: targCtrl.text.trim().toUpperCase(), alimentazione: alimLocal));
@@ -1087,6 +1172,7 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
                               targCtrl.clear();
                             });
                             setState(() {});
+                            await _salvaDatiPersistenti();
                           }
                         },
                         icon: const Icon(Icons.add, size: 16),
@@ -1355,7 +1441,7 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
     });
   }
 
-  void _salvaGiornataCorrente() {
+  Future<void> _salvaGiornataCorrente() async {
     _archivioGiornate.removeWhere((g) => g.data.year == _dataSelezionata.year && g.data.month == _dataSelezionata.month && g.data.day == _dataSelezionata.day);
 
     List<TrattDataBackup> tratteBackup = _tratte.map((t) => TrattDataBackup(
@@ -1383,6 +1469,8 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
         attivita: _agendaController.text,
       ),
     );
+
+    await _salvaDatiPersistenti();
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Giornata del ${_dataSelezionata.day}/${_dataSelezionata.month}/${_dataSelezionata.year} salvata con successo!')),
