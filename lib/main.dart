@@ -411,7 +411,7 @@ class _SchermataAutenticazionePageState extends State<SchermataAutenticazionePag
   }
 }
 
-// --- CLASSE DEL CALENDARIO AVANZATO ---
+// --- CALENDARIO MODERNO CON FESTIVITÀ ITALIANE E COLONNA N.S. ---
 class CustomCalendarPicker extends StatefulWidget {
   final DateTime initialDate;
   final DateTime firstDate;
@@ -460,147 +460,321 @@ class _CustomCalendarPickerState extends State<CustomCalendarPicker> {
     return widget.recordedDates.any((rd) => rd.year == d.year && rd.month == d.month && rd.day == d.day);
   }
 
+  // Calcolo della Pasqua (Algoritmo di Gauss)
+  DateTime _calcolaPasqua(int anno) {
+    int a = anno % 19;
+    int b = anno ~/ 100;
+    int c = anno % 100;
+    int d = b ~/ 4;
+    int e = b % 4;
+    int f = (b + 8) ~/ 25;
+    int g = (b - f + 1) ~/ 3;
+    int h = (19 * a + b - d - g + 15) % 30;
+    int i = c ~/ 4;
+    int k = c % 4;
+    int l = (32 + 2 * e + 2 * i - h - k) % 7;
+    int m = (a + 11 * h + 22 * l) ~/ 451;
+    int mese = (h + l - 7 * m + 114) ~/ 31;
+    int giorno = ((h + l - 7 * m + 114) % 31) + 1;
+    return DateTime(anno, mese, giorno);
+  }
+
+  bool _isFestivaItaliana(DateTime d) {
+    int m = d.month;
+    int day = d.day;
+    int y = d.year;
+
+    // Festività fisse
+    if ((m == 1 && day == 1) ||   // Capodanno
+        (m == 1 && day == 6) ||   // Epifania
+        (m == 4 && day == 25) ||  // Liberazione
+        (m == 5 && day == 1) ||   // Festa Lavoro
+        (m == 6 && day == 2) ||   // Festa Repubblica
+        (m == 8 && day == 15) ||  // Assunzione (Ferragosto)
+        (m == 11 && day == 1) ||  // Tutti i Santi
+        (m == 12 && day == 8) ||  // Immacolata
+        (m == 12 && day == 25) || // Natale
+        (m == 12 && day == 26)) { // Santo Stefano
+      return true;
+    }
+
+    // Festività mobili (Pasqua e Pasquetta)
+    DateTime pasqua = _calcolaPasqua(y);
+    DateTime pasquetta = pasqua.add(const Duration(days: 1));
+    if (d.year == pasqua.year && d.month == pasqua.month && d.day == pasqua.day) return true;
+    if (d.year == pasquetta.year && d.month == pasquetta.month && d.day == pasquetta.day) return true;
+
+    return false;
+  }
+
+  // Funzione per mostrare il dialogo Gestione Festività
+  void _mostraGestioneFestivita() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Gestione Festività Italiane', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0B5335))),
+        content: SizedBox(
+          width: 350,
+          child: ListView(
+            shrinkWrap: true,
+            children: const [
+              ListTile(dense: true, title: Text('Capodanno'), trailing: Text('01/01', style: TextStyle(fontWeight: FontWeight.bold))),
+              ListTile(dense: true, title: Text('Epifania'), trailing: Text('06/01', style: TextStyle(fontWeight: FontWeight.bold))),
+              ListTile(dense: true, title: Text('Pasqua & Pasquetta'), trailing: Text('Variabile', style: TextStyle(fontWeight: FontWeight.bold))),
+              ListTile(dense: true, title: Text('Festa della Liberazione'), trailing: Text('25/04', style: TextStyle(fontWeight: FontWeight.bold))),
+              ListTile(dense: true, title: Text('Festa del Lavoro'), trailing: Text('01/05', style: TextStyle(fontWeight: FontWeight.bold))),
+              ListTile(dense: true, title: Text('Festa della Repubblica'), trailing: Text('02/06', style: TextStyle(fontWeight: FontWeight.bold))),
+              ListTile(dense: true, title: Text('Assunzione (Ferragosto)'), trailing: Text('15/08', style: TextStyle(fontWeight: FontWeight.bold))),
+              ListTile(dense: true, title: Text('Tutti i Santi'), trailing: Text('01/11', style: TextStyle(fontWeight: FontWeight.bold))),
+              ListTile(dense: true, title: Text('Immacolata Concezione'), trailing: Text('08/12', style: TextStyle(fontWeight: FontWeight.bold))),
+              ListTile(dense: true, title: Text('Natale'), trailing: Text('25/12', style: TextStyle(fontWeight: FontWeight.bold))),
+              ListTile(dense: true, title: Text('Santo Stefano'), trailing: Text('26/12', style: TextStyle(fontWeight: FontWeight.bold))),
+            ],
+          ),
+        ),
+        actions: [
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0B5335), foregroundColor: Colors.white),
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Chiudi'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     const Color cislGreen = Color(0xFF0B5335);
 
     int daysInMonth = DateTime(_currentMonth.year, _currentMonth.month + 1, 0).day;
-    int firstDayWeekday = DateTime(_currentMonth.year, _currentMonth.month, 1).weekday;
+    int firstDayWeekday = DateTime(_currentMonth.year, _currentMonth.month, 1).weekday; // 1 = Lun, 7 = Dom
 
-    List<Widget> dayWidgets = [];
+    // Calcolo delle settimane dell'anno per la colonna N.S.
+    // Costruiamo le righe della griglia (ogni riga ha la sua settimana)
+    List<Widget> gridRows = [];
 
-    List<String> weekDays = ['L', 'M', 'M', 'G', 'V', 'S', 'D'];
-    for (int i = 0; i < weekDays.length; i++) {
-      bool isWeekendCol = (i >= 5);
-      dayWidgets.add(
-        Center(
-          child: Text(
-            weekDays[i],
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 13,
-              color: isWeekendCol ? Colors.red.shade700 : Colors.grey.shade700,
-            ),
+    // Intestazione giorni della settimana + colonna N.S.
+    List<String> weekDays = ['N.S.', 'LUN', 'MAR', 'MER', 'GIO', 'VEN', 'SAB', 'DOM'];
+    List<Widget> headerWidgets = weekDays.map((w) {
+      bool isSun = (w == 'DOM');
+      bool isNs = (w == 'N.S.');
+      return Container(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        alignment: Alignment.center,
+        child: Text(
+          w,
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: isNs ? 11 : 12,
+            color: isSun ? Colors.red.shade700 : (isNs ? cislGreen : Colors.grey.shade800),
           ),
         ),
       );
-    }
+    }).toList();
 
-    for (int i = 1; i < firstDayWeekday; i++) {
-      dayWidgets.add(const SizedBox.shrink());
-    }
+    gridRows.add(
+      Container(
+        decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(8)),
+        child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: headerWidgets),
+      ),
+    );
+    gridRows.add(const SizedBox(height: 6));
 
-    for (int day = 1; day <= daysInMonth; day++) {
-      DateTime dateBox = DateTime(_currentMonth.year, _currentMonth.month, day);
-      bool isSelected = (_selectedDate.year == dateBox.year && _selectedDate.month == dateBox.month && _selectedDate.day == dateBox.day);
-      bool isRecorded = _isDataRegistrata(dateBox);
-      bool isWeekend = (dateBox.weekday == DateTime.saturday || dateBox.weekday == DateTime.sunday);
+    // Generiamo i giorni settimana per settimana
+    DateTime iteratorDate = DateTime(_currentMonth.year, _currentMonth.month, 1);
+    // Indietreggiamo al lunedì della prima settimana se necessario
+    int offset = firstDayWeekday - 1; // 0 se lunedì
+    DateTime startGridDate = iteratorDate.subtract(Duration(days: offset));
 
-      dayWidgets.add(
-        GestureDetector(
-          onTap: () {
-            setState(() {
-              _selectedDate = dateBox;
-            });
-            if (isRecorded && widget.onDateUnselected != null) {
-              widget.onDateUnselected!(dateBox);
-            } else {
-              widget.onDateSelected(dateBox);
-            }
-            Navigator.pop(context);
-          },
-          child: Container(
-            margin: const EdgeInsets.all(4),
-            decoration: BoxDecoration(
-              color: isSelected
-                  ? cislGreen
-                  : isRecorded
-                      ? cislGreen.withOpacity(0.2)
-                      : Colors.transparent,
-              shape: BoxShape.circle,
-              border: isRecorded && !isSelected ? Border.all(color: cislGreen, width: 1.5) : null,
-            ),
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    '$day',
-                    style: TextStyle(
-                      fontWeight: isSelected || isRecorded ? FontWeight.bold : FontWeight.normal,
-                      color: isSelected
-                          ? Colors.white
-                          : isWeekend
-                              ? Colors.red.shade700
-                              : Colors.black87,
-                      fontSize: 13,
-                    ),
+    // Creiamo 6 settimane standard per coprire tutto il mese
+    DateTime currentWeekTracker = startGridDate;
+
+    for (int weekIndex = 0; weekIndex < 6; weekIndex++) {
+      // Calcoliamo il numero della settimana nell'anno
+      int numeroSettimana = _getNumeroSettimana(currentWeekTracker);
+
+      List<Widget> rowCells = [];
+
+      // Colonna N.S.
+      rowCells.add(
+        Container(
+          width: 36,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: Colors.yellow.shade300,
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: Colors.grey.shade400, width: 0.5),
+          ),
+          child: Text(
+            '$numeroSettimana',
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.blue),
+          ),
+        ),
+      );
+
+      // 7 giorni della settimana
+      for (int d = 0; d < 7; d++) {
+        bool isCurrentMonth = currentWeekTracker.month == _currentMonth.month;
+        bool isSelected = (_selectedDate.year == currentWeekTracker.year &&
+            _selectedDate.month == currentWeekTracker.month &&
+            _selectedDate.day == currentWeekTracker.day);
+        bool isRecorded = _isDataRegistrata(currentWeekTracker);
+        bool isFestiva = _isFestivaItaliana(currentWeekTracker);
+        bool isSunday = (currentWeekTracker.weekday == DateTime.sunday);
+        bool isSaturday = (currentWeekTracker.weekday == DateTime.saturday);
+
+        Color cellColor = Colors.transparent;
+        Color textColor = isCurrentMonth ? Colors.black87 : Colors.grey.shade400;
+
+        if (isSelected) {
+          cellColor = cislGreen;
+          textColor = Colors.white;
+        } else if (isFestiva || isSunday) {
+          cellColor = Colors.red.shade600;
+          textColor = Colors.white;
+        } else if (isRecorded) {
+          cellColor = cislGreen.withOpacity(0.2);
+          textColor = cislGreen;
+        } else if (isSaturday) {
+          textColor = Colors.red.shade700;
+        }
+
+        DateTime capturedDate = currentWeekTracker;
+
+        rowCells.add(
+          Expanded(
+            child: GestureDetector(
+              onTap: () {
+                setState(() {
+                  _selectedDate = capturedDate;
+                });
+                if (isRecorded && widget.onDateUnselected != null) {
+                  widget.onDateUnselected!(capturedDate);
+                } else {
+                  widget.onDateSelected(capturedDate);
+                }
+                Navigator.pop(context);
+              },
+              child: Container(
+                height: 38,
+                margin: const EdgeInsets.all(2),
+                decoration: BoxDecoration(
+                  color: cellColor,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: Colors.grey.shade300, width: 0.8),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  '${capturedDate.day.toString().padLeft(2, '0')}',
+                  style: TextStyle(
+                    fontWeight: isSelected || isRecorded || isFestiva ? FontWeight.bold : FontWeight.normal,
+                    color: textColor,
+                    fontSize: 13,
                   ),
-                  if (isRecorded && !isSelected)
-                    Container(
-                      margin: const EdgeInsets.only(top: 2),
-                      width: 4,
-                      height: 4,
-                      decoration: const BoxDecoration(
-                        color: cislGreen,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                ],
+                ),
               ),
             ),
           ),
+        );
+
+        currentWeekTracker = currentWeekTracker.add(const Duration(days: 1));
+      }
+
+      gridRows.add(
+        Padding(
+          padding: const EdgeInsets.only(bottom: 4.0),
+          child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: rowCells),
         ),
       );
+
+      // Se abbiamo superato la fine del mese e siamo a fine settimana, possiamo fermarci (opzionale, 6 righe coprono sempre)
+      if (currentWeekTracker.month != _currentMonth.month && weekIndex >= 4) {
+        break;
+      }
     }
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      elevation: 6,
+      elevation: 8,
       child: Container(
         padding: const EdgeInsets.all(20),
-        constraints: const BoxConstraints(maxWidth: 380),
+        constraints: const BoxConstraints(maxWidth: 420),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // Barra superiore con Pulsante Festività e Frecce Mese
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                IconButton(
-                  icon: const Icon(Icons.chevron_left, color: cislGreen),
-                  onPressed: () => _cambiaMese(-1),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green.shade600,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  ),
+                  onPressed: _mostraGestioneFestivita,
+                  icon: const Icon(Icons.celebration, size: 16),
+                  label: const Text('Festività', style: TextStyle(fontSize: 12)),
                 ),
-                Text(
-                  '${_mesi[_currentMonth.month - 1]} ${_currentMonth.year}',
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: cislGreen),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.chevron_right, color: cislGreen),
-                  onPressed: () => _cambiaMese(1),
+                Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.chevron_left, color: cislGreen),
+                      onPressed: () => _cambiaMese(-1),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.chevron_right, color: cislGreen),
+                      onPressed: () => _cambiaMese(1),
+                    ),
+                  ],
                 ),
               ],
+            ),
+            const SizedBox(height: 6),
+            // Titolo Mese Anno corrente
+            Text(
+              '${_mesi[_currentMonth.month - 1]} ${_currentMonth.year}',
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: cislGreen),
             ),
             const Divider(height: 20),
-            GridView.count(
-              crossAxisCount: 7,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              children: dayWidgets,
-            ),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Chiudi', style: TextStyle(color: Colors.grey)),
+            // Griglia Calendario
+            Column(children: gridRows),
+            const SizedBox(height: 12),
+            // Pulsante Oggi in basso
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue.shade700,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
-              ],
+                onPressed: () {
+                  DateTime oggi = DateTime.now();
+                  setState(() {
+                    _selectedDate = oggi;
+                    _currentMonth = DateTime(oggi.year, oggi.month, 1);
+                  });
+                  widget.onDateSelected(oggi);
+                  Navigator.pop(context);
+                },
+                child: Text('Oggi: ${DateTime.now().day.toString().padLeft(2, '0')}/${DateTime.now().month.toString().padLeft(2, '0')}/${DateTime.now().year}',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              ),
             ),
           ],
         ),
       ),
     );
+  }
+
+  int _getNumeroSettimana(DateTime date) {
+    // Calcolo approssimativo o standard ISO della settimana dell'anno
+    int dayOfYear = int.parse((date.difference(DateTime(date.year, 1, 1)).inDays + 1).toString());
+    return ((dayOfYear - date.weekday + 10) / 7).floor();
   }
 }
 
