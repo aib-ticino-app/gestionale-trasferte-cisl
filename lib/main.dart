@@ -263,12 +263,12 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
           }
         }
 
-        // Fallback geometrico
+        // Fallback geometrico aggiornato con coefficiente 1.1 per Google Maps
         double dLat = (p2.lat - p1.lat) * pi / 180;
         double dLon = (p2.lon - p1.lon) * pi / 180;
         double a = sin(dLat / 2) * sin(dLat / 2) + cos(p1.lat * pi / 180) * cos(p2.lat * pi / 180) * sin(dLon / 2) * sin(dLon / 2);
         double c = 2 * atan2(sqrt(a), sqrt(1 - a));
-        double kmRealiStrada = (6371.0 * c) * 1.3;
+        double kmRealiStrada = (6371.0 * c) * 1.1;
 
         setState(() {
           tratta.kmSolaAndata = kmRealiStrada;
@@ -411,8 +411,8 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
   }
 
   Future<void> _mostraSelettoreIntervalloStampa() async {
-    DateTime dataInizio = DateTime.now().subtract(const Duration(days: 7));
-    DateTime dataFine = DateTime.now();
+    DateTime dataInizio = _dataSelezionata.subtract(const Duration(days: 7));
+    DateTime dataFine = _dataSelezionata;
     List<DateTime> dateRegistrate = _archivioGiornate.map((g) => g.data).toList();
 
     await showDialog(
