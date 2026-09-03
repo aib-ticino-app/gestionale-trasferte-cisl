@@ -43,20 +43,20 @@ class GestionaleSindacatoApp extends StatelessWidget {
 }
 
 class ProfiloUtente {
+  final String userId;
   final String nome;
   final String cognome;
   final String ruolo;
   final String sede;
   final String telefono;
-  final String email;
 
   ProfiloUtente({
+    required this.userId,
     required this.nome,
     required this.cognome,
     required this.ruolo,
     required this.sede,
     required this.telefono,
-    required this.email,
   });
 }
 
@@ -77,22 +77,23 @@ class SchermataAutenticazionePage extends StatefulWidget {
 
 class _SchermataAutenticazionePageState extends State<SchermataAutenticazionePage> {
   final _formKey = GlobalKey<FormState>();
+  final TextEditingController _userIdController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _nomeController = TextEditingController();
   final TextEditingController _cognomeController = TextEditingController();
   final TextEditingController _ruoloController = TextEditingController(text: 'Delegato Sindacale');
   final TextEditingController _sedeController = TextEditingController();
   final TextEditingController _telefonoController = TextEditingController();
-  final TextEditingController _emailController = TextEditingController();
 
   void _registraAccedi() {
     if (_formKey.currentState!.validate()) {
       ProfiloUtente utente = ProfiloUtente(
+        userId: _userIdController.text.trim(),
         nome: _nomeController.text.trim(),
         cognome: _cognomeController.text.trim(),
         ruolo: _ruoloController.text.trim(),
         sede: _sedeController.text.trim(),
         telefono: _telefonoController.text.trim(),
-        email: _emailController.text.trim(),
       );
 
       Navigator.pushReplacement(
@@ -108,7 +109,7 @@ class _SchermataAutenticazionePageState extends State<SchermataAutenticazionePag
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Accesso / Registrazione Utente', style: TextStyle(color: Colors.white)),
+        title: const Text('Accesso / Creazione Account', style: TextStyle(color: Colors.white)),
         backgroundColor: cislGreen,
       ),
       body: Center(
@@ -130,17 +131,30 @@ class _SchermataAutenticazionePageState extends State<SchermataAutenticazionePag
                       const Icon(Icons.lock_person, size: 64, color: cislGreen),
                       const SizedBox(height: 12),
                       const Text(
-                        'Benvenuto in CISL FP Trasferte',
+                        'CISL FP - Gestione Trasferte',
                         style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: cislGreen),
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 6),
                       const Text(
-                        'Inserisci i tuoi dati per accedere alla tua area personale e sincronizzare i tuoi rimborsi.',
+                        'Inserisci le tue credenziali e i dati anagrafici per configurare il tuo account.',
                         style: TextStyle(fontSize: 12, color: Colors.grey),
                         textAlign: TextAlign.center,
                       ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 20),
+                      TextFormField(
+                        controller: _userIdController,
+                        decoration: const InputDecoration(labelText: 'User ID', border: OutlineInputBorder(), prefixIcon: Icon(Icons.person_pin)),
+                        validator: (value) => value == null || value.isEmpty ? 'Inserisci un User ID' : null,
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _passwordController,
+                        obscureText: true,
+                        decoration: const InputDecoration(labelText: 'Password', border: OutlineInputBorder(), prefixIcon: Icon(Icons.lock)),
+                        validator: (value) => value == null || value.length < 4 ? 'La password deve avere almeno 4 caratteri' : null,
+                      ),
+                      const Divider(height: 30),
                       TextFormField(
                         controller: _nomeController,
                         decoration: const InputDecoration(labelText: 'Nome', border: OutlineInputBorder(), prefixIcon: Icon(Icons.person)),
@@ -154,13 +168,6 @@ class _SchermataAutenticazionePageState extends State<SchermataAutenticazionePag
                       ),
                       const SizedBox(height: 12),
                       TextFormField(
-                        controller: _emailController,
-                        keyboardType: TextInputType.emailAddress,
-                        decoration: const InputDecoration(labelText: 'Email (ID Accesso)', border: OutlineInputBorder(), prefixIcon: Icon(Icons.email)),
-                        validator: (value) => value == null || !value.contains('@') ? 'Inserisci un indirizzo email valido' : null,
-                      ),
-                      const SizedBox(height: 12),
-                      TextFormField(
                         controller: _ruoloController,
                         decoration: const InputDecoration(labelText: 'Ruolo / Qualifica', border: OutlineInputBorder(), prefixIcon: Icon(Icons.badge)),
                         validator: (value) => value == null || value.isEmpty ? 'Inserisci il ruolo' : null,
@@ -168,7 +175,7 @@ class _SchermataAutenticazionePageState extends State<SchermataAutenticazionePag
                       const SizedBox(height: 12),
                       TextFormField(
                         controller: _sedeController,
-                        decoration: const InputDecoration(labelText: 'Sede di Lavoro / Territorio', border: OutlineInputBorder(), prefixIcon: Icon(Icons.location_city)),
+                        decoration: const InputDecoration(labelText: 'Sede / Territorio', border: OutlineInputBorder(), prefixIcon: Icon(Icons.location_city)),
                         validator: (value) => value == null || value.isEmpty ? 'Inserisci la sede' : null,
                       ),
                       const SizedBox(height: 12),
@@ -187,7 +194,7 @@ class _SchermataAutenticazionePageState extends State<SchermataAutenticazionePag
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                         ),
                         onPressed: _registraAccedi,
-                        child: const Text('Accedi alla mia Area', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                        child: const Text('Crea Account e Accedi', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                       ),
                     ],
                   ),
@@ -275,6 +282,7 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
   String _alimentazioneSelezionata = 'Gasolio (Diesel)';
   double _costoAciKm = 0.45;
 
+  // Parco Auto in Memoria (fino a 4)
   final List<Autoveicolo> _parcoAuto = [];
 
   List<TrattaViaggio> _tratte = [TrattaViaggio()];
@@ -363,7 +371,6 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
 
   void _eliminaRegistrazioneGiorno(DateTime data) {
     setState(() {
-      // CORRETTO: accesso tramite g.data.year, g.data.month, g.data.day
       _archivioGiornate.removeWhere((g) => g.data.year == data.year && g.data.month == data.month && g.data.day == data.day);
       _caricaDatiGiorno(data);
     });
@@ -424,32 +431,14 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
                               dense: true,
                               title: Text('${auto.modello} (${auto.targa})', style: const TextStyle(fontWeight: FontWeight.bold)),
                               subtitle: Text('Alimentazione: ${auto.alimentazione}'),
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  IconButton(
-                                    icon: const Icon(Icons.check_circle, color: Color(0xFF0B5335), size: 20),
-                                    tooltip: 'Usa questo veicolo',
-                                    onPressed: () {
-                                      setState(() {
-                                        _modelloAutoController.text = auto.modello;
-                                        _targaController.text = auto.targa;
-                                        _alimentazioneSelezionata = auto.alimentazione;
-                                        _aggiornaCostoAci(auto.alimentazione);
-                                      });
-                                      Navigator.pop(context);
-                                    },
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(Icons.delete, color: Colors.red, size: 20),
-                                    tooltip: 'Elimina veicolo',
-                                    onPressed: () {
-                                      setDialogState(() {
-                                        _parcoAuto.removeAt(index);
-                                      });
-                                    },
-                                  ),
-                                ],
+                              trailing: IconButton(
+                                icon: const Icon(Icons.delete, color: Colors.red, size: 20),
+                                onPressed: () {
+                                  setDialogState(() {
+                                    _parcoAuto.removeAt(index);
+                                  });
+                                  setState(() {});
+                                },
                               ),
                             );
                           },
@@ -488,13 +477,14 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
                               modCtrl.clear();
                               targCtrl.clear();
                             });
+                            setState(() {});
                           }
                         },
                         icon: const Icon(Icons.add, size: 16),
                         label: const Text('Salva in Memoria'),
                       ),
                     ] else
-                      const Text('Hai raggiunto il limite massimo di 4 veicoli.', style: TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.bold)),
+                      const Text('Raggiunto limite massimo di 4 veicoli.', style: TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.bold)),
                   ],
                 ),
               ),
@@ -1055,6 +1045,18 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
           ],
         ),
         backgroundColor: cislGreen,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout, color: Colors.white),
+            tooltip: 'Esci / Logout',
+            onPressed: () {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => const SchermataAutenticazionePage()),
+              );
+            },
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
@@ -1143,11 +1145,41 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
                   style: OutlinedButton.styleFrom(foregroundColor: cislGreen, side: BorderSide(color: cislGreen)),
                   onPressed: _gestisciParcoAuto,
                   icon: const Icon(Icons.directions_car, size: 16),
-                  label: const Text('I Miei Veicoli'),
+                  label: const Text('Gestisci Veicoli'),
                 ),
               ],
             ),
             const SizedBox(height: 8),
+
+            // Menu a tendina per pescare rapidamente il veicolo salvato
+            if (_parcoAuto.isNotEmpty) ...[
+              DropdownButtonFormField<Autoveicolo>(
+                decoration: const InputDecoration(
+                  labelText: 'Seleziona veicolo da memoria',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.garage),
+                  isDense: true,
+                ),
+                items: _parcoAuto.map((auto) {
+                  return DropdownMenuItem<Autoveicolo>(
+                    value: auto,
+                    child: Text('${auto.modello} - ${auto.targa} (${auto.alimentazione})'),
+                  );
+                }).toList(),
+                onChanged: (Autoveicolo? selectedAuto) {
+                  if (selectedAuto != null) {
+                    setState(() {
+                      _modelloAutoController.text = selectedAuto.modello;
+                      _targaController.text = selectedAuto.targa;
+                      _alimentazioneSelezionata = selectedAuto.alimentazione;
+                      _aggiornaCostoAci(selectedAuto.alimentazione);
+                    });
+                  }
+                },
+              ),
+              const SizedBox(height: 10),
+            ],
+
             Row(
               children: [
                 Expanded(

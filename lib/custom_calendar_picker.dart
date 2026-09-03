@@ -57,10 +57,9 @@ class _CustomCalendarPickerState extends State<CustomCalendarPicker> {
 
     List<Widget> dayWidgets = [];
 
-    // Intestazione giorni settimana (Lunedì - Domenica)
     List<String> weekDays = ['L', 'M', 'M', 'G', 'V', 'S', 'D'];
     for (int i = 0; i < weekDays.length; i++) {
-      bool isWeekendCol = (i >= 5); // Sabato e Domenica
+      bool isWeekendCol = (i >= 5);
       dayWidgets.add(
         Center(
           child: Text(
@@ -75,12 +74,10 @@ class _CustomCalendarPickerState extends State<CustomCalendarPicker> {
       );
     }
 
-    // Spazi vuoti prima del primo giorno del mese
     for (int i = 1; i < firstDayWeekday; i++) {
       dayWidgets.add(const SizedBox.shrink());
     }
 
-    // Giorni del mese
     for (int day = 1; day <= daysInMonth; day++) {
       DateTime dateBox = DateTime(_currentMonth.year, _currentMonth.month, day);
       bool isSelected = (_selectedDate.year == dateBox.year && _selectedDate.month == dateBox.month && _selectedDate.day == dateBox.day);
@@ -94,7 +91,6 @@ class _CustomCalendarPickerState extends State<CustomCalendarPicker> {
               _selectedDate = dateBox;
             });
             if (isRecorded && widget.onDateUnselected != null) {
-              // Funzionalità al contrario: se è già registrata, la deseleziona/rimuove
               widget.onDateUnselected!(dateBox);
             } else {
               widget.onDateSelected(dateBox);
@@ -139,7 +135,6 @@ class _CustomCalendarPickerState extends State<CustomCalendarPicker> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Selettore Mese e Anno
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -158,7 +153,6 @@ class _CustomCalendarPickerState extends State<CustomCalendarPicker> {
               ],
             ),
             const Divider(height: 20),
-            // Griglia Calendario
             GridView.count(
               crossAxisCount: 7,
               shrinkWrap: true,
