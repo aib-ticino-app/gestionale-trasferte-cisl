@@ -42,7 +42,6 @@ class GestionaleSindacatoApp extends StatelessWidget {
   }
 }
 
-// Modello Profilo Utente
 class ProfiloUtente {
   final String nome;
   final String cognome;
@@ -61,7 +60,6 @@ class ProfiloUtente {
   });
 }
 
-// Modello Autoveicolo in Memoria
 class Autoveicolo {
   final String modello;
   final String targa;
@@ -70,7 +68,6 @@ class Autoveicolo {
   Autoveicolo({required this.modello, required this.targa, required this.alimentazione});
 }
 
-// --- PAGINA DI AUTENTICAZIONE / REGISTRAZIONE ---
 class SchermataAutenticazionePage extends StatefulWidget {
   const SchermataAutenticazionePage({super.key});
 
@@ -278,7 +275,6 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
   String _alimentazioneSelezionata = 'Gasolio (Diesel)';
   double _costoAciKm = 0.45;
 
-  // Lista Parco Auto in Memoria (fino a 4 veicoli)
   final List<Autoveicolo> _parcoAuto = [];
 
   List<TrattaViaggio> _tratte = [TrattaViaggio()];
@@ -367,7 +363,8 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
 
   void _eliminaRegistrazioneGiorno(DateTime data) {
     setState(() {
-      _archivioGiornate.removeWhere((g) => g.year == data.year && g.month == data.month && g.day == data.day);
+      // CORRETTO: accesso tramite g.data.year, g.data.month, g.data.day
+      _archivioGiornate.removeWhere((g) => g.data.year == data.year && g.data.month == data.month && g.data.day == data.day);
       _caricaDatiGiorno(data);
     });
     ScaffoldMessenger.of(context).showSnackBar(
@@ -395,7 +392,6 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
     );
   }
 
-  // Finestra di Gestione Parco Auto (Max 4 veicoli)
   Future<void> _gestisciParcoAuto() async {
     final TextEditingController modCtrl = TextEditingController();
     final TextEditingController targCtrl = TextEditingController();
@@ -644,7 +640,6 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
           }
         }
 
-        // Fallback geometrico con coefficiente 1.1 per Google Maps
         double dLat = (p2.lat - p1.lat) * pi / 180;
         double dLon = (p2.lon - p1.lon) * pi / 180;
         double a = sin(dLat / 2) * sin(dLat / 2) + cos(p1.lat * pi / 180) * cos(p2.lat * pi / 180) * sin(dLon / 2) * sin(dLon / 2);
