@@ -44,6 +44,8 @@ class GestionaleSindacatoApp extends StatelessWidget {
 
 class ProfiloUtente {
   final String userId;
+  final String password;
+  final String email;
   final String nome;
   final String cognome;
   final String ruolo;
@@ -52,6 +54,8 @@ class ProfiloUtente {
 
   ProfiloUtente({
     required this.userId,
+    required this.password,
+    required this.email,
     required this.nome,
     required this.cognome,
     required this.ruolo,
@@ -68,6 +72,9 @@ class Autoveicolo {
   Autoveicolo({required this.modello, required this.targa, required this.alimentazione});
 }
 
+// Archivio globale temporaneo degli utenti registrati per simulare il database
+List<ProfiloUtente> _utentiRegistrati = [];
+
 class SchermataAutenticazionePage extends StatefulWidget {
   const SchermataAutenticazionePage({super.key});
 
@@ -75,32 +82,119 @@ class SchermataAutenticazionePage extends StatefulWidget {
   State<SchermataAutenticazionePage> createState() => _SchermataAutenticazionePageState();
 }
 
-class _SchermataAutenticazionePageState extends State<SchermataAutenticazionePage> {
-  final _formKey = GlobalKey<FormState>();
-  final TextEditingController _userIdController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _nomeController = TextEditingController();
-  final TextEditingController _cognomeController = TextEditingController();
-  final TextEditingController _ruoloController = TextEditingController(text: 'Delegato Sindacale');
-  final TextEditingController _sedeController = TextEditingController();
-  final TextEditingController _telefonoController = TextEditingController();
+class _SchermataAutenticazionePageState extends State<SchermataAutenticazionePage> with SingleTickerProviderStateMixin {
+  late TabController _tabController;
 
-  void _registraAccedi() {
-    if (_formKey.currentState!.validate()) {
-      ProfiloUtente utente = ProfiloUtente(
-        userId: _userIdController.text.trim(),
-        nome: _nomeController.text.trim(),
-        cognome: _cognomeController.text.trim(),
-        ruolo: _ruoloController.text.trim(),
-        sede: _sedeController.text.trim(),
-        telefono: _telefonoController.text.trim(),
+  // Controller Login
+  final _loginFormKey = GlobalKey<FormState>();
+  final TextEditingController _loginUserCtrl = TextEditingController();
+  final TextEditingController _loginPassCtrl = TextEditingController();
+
+  // Controller Registrazione
+  final _regFormKey = GlobalKey<FormState>();
+  final TextEditingController _regUserCtrl = TextEditingController();
+  final TextEditingController _regPassCtrl = TextEditingController();
+  final TextEditingController _regEmailCtrl = TextEditingController();
+  final TextEditingController _regNomeCtrl = TextEditingController();
+  final TextEditingController _regCognomeCtrl = TextEditingController();
+  final TextEditingController _regRuoloCtrl = TextEditingController(text: 'Delegato Sindacale');
+  final TextEditingController _regSedeCtrl = TextEditingController();
+  final TextEditingController _regTelCtrl = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+  }
+
+  void _eseguiLogin() {
+    if (_loginFormKey.currentState!.validate()) {
+      String user = _loginUserCtrl.text.trim();
+      String pass = _loginPassCtrl.text.trim();
+
+      var trovato = _utentiRegistrati.firstWhere(
+        (u) => u.userId == user && u.password == pass,
+        orElse: () => ProfiloUtente(userId: '', password: '', email: '', nome: '', cognome: '', ruolo: '', sede: '', telefono: ''),
       );
 
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => SchermataGiornalieraPage(utente: utente)),
-      );
+      if (trovato.userId.isNotEmpty) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => SchermataGiornalieraPage(utente: trovato)),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Credenziali non valide o account non esistente. Registrati prima!'), backgroundColor: Colors.red),
+        );
+      }
     }
+  }
+
+  void _eseguiRegistrazione() {
+    if (_regFormKey.currentState!.validate()) {
+      String user = _regUserCtrl.text.trim();
+      
+      if (_utentiRegistrati.any((u) => u.userId == user)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('User ID già esistente. Scegline un altro o fai il login.'), backgroundColor: Colors.red),
+        );
+        return;
+      }
+
+      ProfiloUtente nuovoUtente = ProfiloUtente(
+        userId: user,
+        password: _regPassCtrl.text.trim(),
+        email: _regEmailCtrl.text.trim(),
+        nome: _regNomeCtrl.text.trim(),
+        cognome: _regCognomeCtrl.text.trim(),
+        ruolo: _regRuoloCtrl.text.trim(),
+        sede: _regSedeCtrl.text.trim(),
+        telefono: _regTelCtrl.text.trim(),
+      );
+
+      _utentiRegistrati.add(nuovoUtente);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Account creato con successo! Ora puoi accedere.'), backgroundColor: Colors.green),
+      );
+
+      _tabController.animateTo(0); // Passa alla scheda Login
+    }
+  }
+
+  void _mostraRecuperoPassword() {
+    final TextEditingController emailRecuperoCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Recupero Password', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Inserisci l’indirizzo email associato al tuo account per ricevere le istruzioni di recupero:', style: TextStyle(fontSize: 12, color: Colors.grey)),
+            const SizedBox(height: 12),
+            TextField(
+              controller: emailRecuperoCtrl,
+              keyboardType: TextInputType.emailAddress,
+              decoration: const InputDecoration(labelText: 'Email', border: OutlineInputBorder(), isDense: true),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annulla', style: TextStyle(color: Colors.grey))),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0B5335), foregroundColor: Colors.white),
+            onPressed: () {
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Se l’email è registrata, riceverai un messaggio di recupero.')),
+              );
+            },
+            child: const Text('Invia Recupero'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -109,100 +203,174 @@ class _SchermataAutenticazionePageState extends State<SchermataAutenticazionePag
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Accesso / Creazione Account', style: TextStyle(color: Colors.white)),
+        title: const Text('CISL FP - Gestione Trasferte', style: TextStyle(color: Colors.white)),
         backgroundColor: cislGreen,
+        bottom: TabBar(
+          controller: _tabController,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white70,
+          indicatorColor: Colors.white,
+          tabs: const [
+            Tab(text: 'ACCEDI', icon: Icon(Icons.login, size: 20)),
+            Tab(text: 'REGISTRATI', icon: Icon(Icons.person_add, size: 20)),
+          ],
+        ),
       ),
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
-          child: Container(
-            constraints: const BoxConstraints(maxWidth: 500),
-            child: Card(
-              elevation: 4,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              child: Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const Icon(Icons.lock_person, size: 64, color: cislGreen),
-                      const SizedBox(height: 12),
-                      const Text(
-                        'CISL FP - Gestione Trasferte',
-                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: cislGreen),
-                        textAlign: TextAlign.center,
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          // Scheda ACCEDI
+          Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24.0),
+              child: Container(
+                constraints: const BoxConstraints(maxWidth: 450),
+                child: Card(
+                  elevation: 4,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  child: Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Form(
+                      key: _loginFormKey,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const Icon(Icons.lock_outline, size: 60, color: cislGreen),
+                          const SizedBox(height: 12),
+                          const Text('Bentornato', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: cislGreen), textAlign: TextAlign.center),
+                          const SizedBox(height: 24),
+                          TextFormField(
+                            controller: _loginUserCtrl,
+                            decoration: const InputDecoration(labelText: 'User ID', border: OutlineInputBorder(), prefixIcon: Icon(Icons.person)),
+                            validator: (v) => v == null || v.isEmpty ? 'Inserisci il tuo User ID' : null,
+                          ),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: _loginPassCtrl,
+                            obscureText: true,
+                            decoration: const InputDecoration(labelText: 'Password', border: OutlineInputBorder(), prefixIcon: Icon(Icons.lock)),
+                            validator: (v) => v == null || v.isEmpty ? 'Inserisci la password' : null,
+                          ),
+                          const SizedBox(height: 8),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton(
+                              onPressed: _mostraRecuperoPassword,
+                              child: const Text('Password dimenticata?', style: TextStyle(color: cislGreen, fontSize: 13)),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: cislGreen,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            onPressed: _eseguiLogin,
+                            child: const Text('Accedi all’App', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 6),
-                      const Text(
-                        'Inserisci le tue credenziali e i dati anagrafici per configurare il tuo account.',
-                        style: TextStyle(fontSize: 12, color: Colors.grey),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 20),
-                      TextFormField(
-                        controller: _userIdController,
-                        decoration: const InputDecoration(labelText: 'User ID', border: OutlineInputBorder(), prefixIcon: Icon(Icons.person_pin)),
-                        validator: (value) => value == null || value.isEmpty ? 'Inserisci un User ID' : null,
-                      ),
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: _passwordController,
-                        obscureText: true,
-                        decoration: const InputDecoration(labelText: 'Password', border: OutlineInputBorder(), prefixIcon: Icon(Icons.lock)),
-                        validator: (value) => value == null || value.length < 4 ? 'La password deve avere almeno 4 caratteri' : null,
-                      ),
-                      const Divider(height: 30),
-                      TextFormField(
-                        controller: _nomeController,
-                        decoration: const InputDecoration(labelText: 'Nome', border: OutlineInputBorder(), prefixIcon: Icon(Icons.person)),
-                        validator: (value) => value == null || value.isEmpty ? 'Inserisci il nome' : null,
-                      ),
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: _cognomeController,
-                        decoration: const InputDecoration(labelText: 'Cognome', border: OutlineInputBorder(), prefixIcon: Icon(Icons.person_outline)),
-                        validator: (value) => value == null || value.isEmpty ? 'Inserisci il cognome' : null,
-                      ),
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: _ruoloController,
-                        decoration: const InputDecoration(labelText: 'Ruolo / Qualifica', border: OutlineInputBorder(), prefixIcon: Icon(Icons.badge)),
-                        validator: (value) => value == null || value.isEmpty ? 'Inserisci il ruolo' : null,
-                      ),
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: _sedeController,
-                        decoration: const InputDecoration(labelText: 'Sede / Territorio', border: OutlineInputBorder(), prefixIcon: Icon(Icons.location_city)),
-                        validator: (value) => value == null || value.isEmpty ? 'Inserisci la sede' : null,
-                      ),
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: _telefonoController,
-                        keyboardType: TextInputType.phone,
-                        decoration: const InputDecoration(labelText: 'Telefono', border: OutlineInputBorder(), prefixIcon: Icon(Icons.phone)),
-                        validator: (value) => value == null || value.isEmpty ? 'Inserisci il telefono' : null,
-                      ),
-                      const SizedBox(height: 24),
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: cislGreen,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                        onPressed: _registraAccedi,
-                        child: const Text('Crea Account e Accedi', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               ),
             ),
           ),
-        ),
+
+          // Scheda REGISTRATI
+          Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24.0),
+              child: Container(
+                constraints: const BoxConstraints(maxWidth: 450),
+                child: Card(
+                  elevation: 4,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  child: Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Form(
+                      key: _regFormKey,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const Icon(Icons.badge, size: 60, color: cislGreen),
+                          const SizedBox(height: 12),
+                          const Text('Crea Nuovo Account', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: cislGreen), textAlign: TextAlign.center),
+                          const SizedBox(height: 20),
+                          TextFormField(
+                            controller: _regUserCtrl,
+                            decoration: const InputDecoration(labelText: 'User ID desiderato', border: OutlineInputBorder(), prefixIcon: Icon(Icons.person_pin)),
+                            validator: (v) => v == null || v.isEmpty ? 'Inserisci un User ID' : null,
+                          ),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: _regPassCtrl,
+                            obscureText: true,
+                            decoration: const InputDecoration(labelText: 'Password', border: OutlineInputBorder(), prefixIcon: Icon(Icons.lock)),
+                            validator: (v) => v == null || v.length < 4 ? 'Minimo 4 caratteri' : null,
+                          ),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: _regEmailCtrl,
+                            keyboardType: TextInputType.emailAddress,
+                            decoration: const InputDecoration(labelText: 'Email (per recupero password)', border: OutlineInputBorder(), prefixIcon: Icon(Icons.email)),
+                            validator: (v) => v == null || !v.contains('@') ? 'Inserisci un’email valida' : null,
+                          ),
+                          const Divider(height: 24),
+                          TextFormField(
+                            controller: _regNomeCtrl,
+                            decoration: const InputDecoration(labelText: 'Nome', border: OutlineInputBorder(), prefixIcon: Icon(Icons.person)),
+                            validator: (v) => v == null || v.isEmpty ? 'Inserisci il nome' : null,
+                          ),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: _regCognomeCtrl,
+                            decoration: const InputDecoration(labelText: 'Cognome', border: OutlineInputBorder(), prefixIcon: Icon(Icons.person_outline)),
+                            validator: (v) => v == null || v.isEmpty ? 'Inserisci il cognome' : null,
+                          ),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: _regRuoloCtrl,
+                            decoration: const InputDecoration(labelText: 'Ruolo / Qualifica', border: OutlineInputBorder(), prefixIcon: Icon(Icons.work)),
+                            validator: (v) => v == null || v.isEmpty ? 'Inserisci il ruolo' : null,
+                          ),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: _regSedeCtrl,
+                            decoration: const InputDecoration(labelText: 'Sede / Territorio', border: OutlineInputBorder(), prefixIcon: Icon(Icons.location_city)),
+                            validator: (v) => v == null || v.isEmpty ? 'Inserisci la sede' : null,
+                          ),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: _regTelCtrl,
+                            keyboardType: TextInputType.phone,
+                            decoration: const InputDecoration(labelText: 'Telefono', border: OutlineInputBorder(), prefixIcon: Icon(Icons.phone)),
+                            validator: (v) => v == null || v.isEmpty ? 'Inserisci il telefono' : null,
+                          ),
+                          const SizedBox(height: 24),
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: cislGreen,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            onPressed: _eseguiRegistrazione,
+                            child: const Text('Registrati', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -282,7 +450,6 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
   String _alimentazioneSelezionata = 'Gasolio (Diesel)';
   double _costoAciKm = 0.45;
 
-  // Parco Auto in Memoria (fino a 4)
   final List<Autoveicolo> _parcoAuto = [];
 
   List<TrattaViaggio> _tratte = [TrattaViaggio()];
@@ -1151,7 +1318,6 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
             ),
             const SizedBox(height: 8),
 
-            // Menu a tendina per pescare rapidamente il veicolo salvato
             if (_parcoAuto.isNotEmpty) ...[
               DropdownButtonFormField<Autoveicolo>(
                 decoration: const InputDecoration(

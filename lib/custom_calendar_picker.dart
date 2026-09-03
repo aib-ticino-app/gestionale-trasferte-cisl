@@ -59,7 +59,7 @@ class _CustomCalendarPickerState extends State<CustomCalendarPicker> {
 
     List<String> weekDays = ['L', 'M', 'M', 'G', 'V', 'S', 'D'];
     for (int i = 0; i < weekDays.length; i++) {
-      bool isWeekendCol = (i >= 5);
+      bool isWeekendCol = (i >= 5); // Sabato e Domenica
       dayWidgets.add(
         Center(
           child: Text(
