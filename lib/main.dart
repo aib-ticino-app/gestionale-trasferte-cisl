@@ -216,6 +216,78 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
     );
   }
 
+  Future<void> _selezionaSettimanaDaStampare() async {
+    DateTime dataScelta = _dataSelezionata;
+    List<DateTime> dateRegistrate = _archivioGiornate.map((g) => g.data).toList();
+
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            DateTime inizioSettimana = dataScelta.subtract(Duration(days: dataScelta.weekday - 1));
+            DateTime fineSettimana = inizioSettimana.add(const Duration(days: 6));
+
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: const Text('Seleziona Settimana per Stampa', style: TextStyle(fontSize: 16)),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('Scegli un giorno della settimana da stampare:', style: TextStyle(fontSize: 13, color: Colors.grey)),
+                  const SizedBox(height: 10),
+                  ListTile(
+                    title: const Text('Giorno di riferimento', style: TextStyle(fontSize: 14)),
+                    subtitle: Text('${dataScelta.day}/${dataScelta.month}/${dataScelta.year}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                    trailing: const Icon(Icons.calendar_today, color: Color(0xFF0B5335)),
+                    onTap: () {
+                      showDialog(
+                        context: context,
+                        builder: (context) => CustomCalendarPicker(
+                          initialDate: dataScelta,
+                          firstDate: DateTime(2025, 1, 1),
+                          lastDate: DateTime(2030, 12, 31),
+                          recordedDates: dateRegistrate,
+                          onDateSelected: (DateTime picked) {
+                            setDialogState(() => dataScelta = picked);
+                          },
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    color: Colors.grey.shade100,
+                    child: Text(
+                      'Intervallo calcolato:\nDal ${inizioSettimana.day}/${inizioSettimana.month}/${inizioSettimana.year} al ${fineSettimana.day}/${fineSettimana.month}/${fineSettimana.year}',
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Annulla', style: TextStyle(color: Colors.grey)),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0B5335), foregroundColor: Colors.white),
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _stampaPdfIntervallo(inizioSettimana, fineSettimana, mostraFirme: false);
+                  },
+                  child: const Text('Stampa Settimana'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   Future<Coord?> _getCoordinateDaIndirizzo(String indirizzo) async {
     final queryCorretta = indirizzo.toLowerCase().contains('italia') ? indirizzo : '$indirizzo, Italia';
     final url = Uri.parse('https://nominatim.openstreetmap.org/search?q=${Uri.encodeComponent(queryCorretta)}&format=json&limit=1&countrycodes=it');
@@ -490,7 +562,7 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
                   style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0B5335), foregroundColor: Colors.white),
                   onPressed: () {
                     Navigator.pop(context);
-                    _stampaPdfIntervallo(dataInizio, dataFine);
+                    _stampaPdfIntervallo(dataInizio, dataFine, mostraFirme: false);
                   },
                   child: const Text('Stampa Report'),
                 ),
@@ -502,7 +574,7 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
     );
   }
 
-  Future<void> _stampaPdfIntervallo(DateTime inizio, DateTime fine) async {
+  Future<void> _stampaPdfIntervallo(DateTime inizio, DateTime fine, {bool mostraFirme = false}) async {
     DateTime start = DateTime(inizio.year, inizio.month, inizio.day);
     DateTime end = DateTime(fine.year, fine.month, fine.day, 23, 59, 59);
 
@@ -522,7 +594,7 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
         pageFormat: PdfPageFormat.a4,
         margin: const pw.EdgeInsets.all(32),
         build: (pw.Context context) {
-          return [
+          List<pw.Widget> widgets = [
             pw.Row(
               mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
               children: [
@@ -534,55 +606,63 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
             pw.SizedBox(height: 10),
             pw.Text('Periodo: Dal ${start.day}/${start.month}/${start.year} al ${end.day}/${end.month}/${end.year}', style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
             pw.SizedBox(height: 15),
-            filtrate.isEmpty
-                ? pw.Paragraph(text: 'Nessuna giornata registrata in questo intervallo.')
-                : pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+          ];
+
+          if (filtrate.isEmpty) {
+            widgets.add(pw.Paragraph(text: 'Nessuna giornata registrata in questo intervallo.'));
+          } else {
+            widgets.add(
+              pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Table(
+                    border: pw.TableBorder.all(color: PdfColors.grey400, width: 0.5),
                     children: [
-                      pw.Table(
-                        border: pw.TableBorder.all(color: PdfColors.grey400, width: 0.5),
+                      pw.TableRow(
+                        decoration: const pw.BoxDecoration(color: PdfColors.grey300),
                         children: [
-                          pw.TableRow(
-                            decoration: const pw.BoxDecoration(color: PdfColors.grey300),
-                            children: [
-                              pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Data', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))),
-                              pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Stato', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))),
-                              pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Rimborso ACI', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))),
-                              pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Spese Extra', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))),
-                              pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Totale', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))),
-                            ],
-                          ),
-                          ...filtrate.map((g) => pw.TableRow(
-                                children: [
-                                  pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('${g.data.day}/${g.data.month}/${g.data.year}', style: const pw.TextStyle(fontSize: 10))),
-                                  pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(g.stato, style: const pw.TextStyle(fontSize: 10))),
-                                  pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('EUR ${g.rimborsoAci.toStringAsFixed(2)}', style: const pw.TextStyle(fontSize: 10))),
-                                  pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('EUR ${g.speseExtra.toStringAsFixed(2)} ${g.haBuonoPasto ? "(incl. Buono Pasto)" : ""}', style: const pw.TextStyle(fontSize: 10))),
-                                  pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('EUR ${g.totale.toStringAsFixed(2)}', style: const pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold))),
-                                ],
-                              )),
+                          pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Data', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))),
+                          pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Stato', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))),
+                          pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Rimborso ACI', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))),
+                          pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Spese Extra', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))),
+                          pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Totale', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))),
                         ],
                       ),
-                      pw.SizedBox(height: 15),
-                      // Sezione Dettaglio Agenda Attività per ogni giorno registrato
-                      pw.Text('Dettaglio Attività Sindacali e Agenda:', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold)),
-                      pw.SizedBox(height: 5),
-                      ...filtrate.where((g) => g.attivita.isNotEmpty).map((g) => pw.Padding(
-                            padding: const pw.EdgeInsets.only(bottom: 6),
-                            child: pw.Column(
-                              crossAxisAlignment: pw.CrossAxisAlignment.start,
-                              children: [
-                                pw.Text('${g.data.day}/${g.data.month}/${g.data.year} (${g.stato}):', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColors.grey700)),
-                                pw.Text(g.attivita, style: const pw.TextStyle(fontSize: 10)),
-                              ],
-                            ),
+                      ...filtrate.map((g) => pw.TableRow(
+                            children: [
+                              pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('${g.data.day}/${g.data.month}/${g.data.year}', style: const pw.TextStyle(fontSize: 10))),
+                              pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(g.stato, style: const pw.TextStyle(fontSize: 10))),
+                              pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('EUR ${g.rimborsoAci.toStringAsFixed(2)}', style: const pw.TextStyle(fontSize: 10))),
+                              pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('EUR ${g.speseExtra.toStringAsFixed(2)} ${g.haBuonoPasto ? "(incl. Buono Pasto)" : ""}', style: const pw.TextStyle(fontSize: 10))),
+                              pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('EUR ${g.totale.toStringAsFixed(2)}', style: const pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold))),
+                            ],
                           )),
                     ],
                   ),
-            pw.SizedBox(height: 15),
-            pw.Bullet(text: 'Totale Rimborsi ACI: EUR ${totAci.toStringAsFixed(2)}'),
-            pw.Bullet(text: 'Totale Spese Extra (inclusi Buoni Pasto): EUR ${totExtra.toStringAsFixed(2)}'),
-            pw.SizedBox(height: 20),
+                  pw.SizedBox(height: 15),
+                  pw.Text('Dettaglio Attività Sindacali e Agenda:', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold)),
+                  pw.SizedBox(height: 5),
+                  ...filtrate.where((g) => g.attivita.isNotEmpty).map((g) => pw.Padding(
+                        padding: const pw.EdgeInsets.only(bottom: 6),
+                        child: pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.start,
+                          children: [
+                            pw.Text('${g.data.day}/${g.data.month}/${g.data.year} (${g.stato}):', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColors.grey700)),
+                            pw.Text(g.attivita, style: const pw.TextStyle(fontSize: 10)),
+                          ],
+                        ),
+                      )),
+                ],
+              ),
+            );
+          }
+
+          widgets.add(pw.SizedBox(height: 15));
+          widgets.add(pw.Bullet(text: 'Totale Rimborsi ACI: EUR ${totAci.toStringAsFixed(2)}'));
+          widgets.add(pw.Bullet(text: 'Totale Spese Extra (inclusi Buoni Pasto): EUR ${totExtra.toStringAsFixed(2)}'));
+          widgets.add(pw.SizedBox(height: 20));
+          
+          widgets.add(
             pw.Container(
               padding: const pw.EdgeInsets.all(12),
               color: PdfColors.grey200,
@@ -594,7 +674,37 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
                 ],
               ),
             ),
-          ];
+          );
+
+          // Aggiunge le firme SOLO se richiesto (es. nel report mensile)
+          if (mostraFirme) {
+            widgets.add(pw.SizedBox(height: 40));
+            widgets.add(
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Container(width: 180, child: pw.Divider(color: PdfColors.black, thickness: 1)),
+                      pw.SizedBox(height: 4),
+                      pw.Text('Firma Operatore/Segretario', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
+                    ],
+                  ),
+                  pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Container(width: 220, child: pw.Divider(color: PdfColors.black, thickness: 1)),
+                      pw.SizedBox(height: 4),
+                      pw.Text('Firma Segretario Amministrativo e/o Segretario Generale', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          }
+
+          return widgets;
         },
       ),
     );
@@ -975,17 +1085,13 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
               children: [
                 ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(backgroundColor: cislGreen, foregroundColor: Colors.white),
-                  onPressed: () => _stampaPdfIntervallo(_dataSelezionata, _dataSelezionata),
+                  onPressed: () => _stampaPdfIntervallo(_dataSelezionata, _dataSelezionata, mostraFirme: false),
                   icon: const Icon(Icons.print, size: 16),
                   label: const Text('Stampa Giorno'),
                 ),
                 ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(backgroundColor: cislGreen, foregroundColor: Colors.white),
-                  onPressed: () {
-                    DateTime inizioSettimana = _dataSelezionata.subtract(Duration(days: _dataSelezionata.weekday - 1));
-                    DateTime fineSettimana = inizioSettimana.add(const Duration(days: 6));
-                    _stampaPdfIntervallo(inizioSettimana, fineSettimana);
-                  },
+                  onPressed: _selezionaSettimanaDaStampare,
                   icon: const Icon(Icons.print, size: 16),
                   label: const Text('Stampa Settimana'),
                 ),
@@ -994,7 +1100,8 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
                   onPressed: () {
                     DateTime inizioMese = DateTime(_dataSelezionata.year, _dataSelezionata.month, 1);
                     DateTime fineMese = DateTime(_dataSelezionata.year, _dataSelezionata.month + 1, 0);
-                    _stampaPdfIntervallo(inizioMese, fineMese);
+                    // Abilita le firme SOLO per il report mensile
+                    _stampaPdfIntervallo(inizioMese, fineMese, mostraFirme: true);
                   },
                   icon: const Icon(Icons.print, size: 16),
                   label: const Text('Stampa Mese'),
