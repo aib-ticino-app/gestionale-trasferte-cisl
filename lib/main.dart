@@ -270,7 +270,6 @@ class _SchermataAutenticazionePageState extends State<SchermataAutenticazionePag
       body: TabBarView(
         controller: _tabController,
         children: [
-          // Scheda ACCEDI
           Center(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(24.0),
@@ -339,8 +338,6 @@ class _SchermataAutenticazionePageState extends State<SchermataAutenticazionePag
               ),
             ),
           ),
-
-          // Scheda REGISTRATI
           Center(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(24.0),
@@ -445,7 +442,7 @@ class _SchermataAutenticazionePageState extends State<SchermataAutenticazionePag
   }
 }
 
-// --- CALENDARIO MODERNO CON FESTIVITÀ ITALIANE E COLONNA N.S. ---
+// --- CALENDARIO MODERNO CON SELEZIONE SETTIMANA N.S. E TASTO CHIUDI ---
 class CustomCalendarPicker extends StatefulWidget {
   final DateTime initialDate;
   final DateTime firstDate;
@@ -618,18 +615,30 @@ class _CustomCalendarPickerState extends State<CustomCalendarPicker> {
       int numeroSettimana = _getNumeroSettimana(currentWeekTracker);
       List<Widget> rowCells = [];
 
+      DateTime mondayOfWeek = currentWeekTracker;
+
+      // Colonna N.S. cliccabile per selezionare l'inizio della settimana (o il lunedì)
       rowCells.add(
-        Container(
-          width: 36,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: Colors.yellow.shade300,
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: Colors.grey.shade400, width: 0.5),
-          ),
-          child: Text(
-            '$numeroSettimana',
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.blue),
+        GestureDetector(
+          onTap: () {
+            setState(() {
+              _selectedDate = mondayOfWeek;
+            });
+            widget.onDateSelected(mondayOfWeek);
+            Navigator.pop(context);
+          },
+          child: Container(
+            width: 36,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: Colors.yellow.shade300,
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: Colors.grey.shade400, width: 0.5),
+            ),
+            child: Text(
+              '$numeroSettimana',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.blue),
+            ),
           ),
         ),
       );
@@ -757,27 +766,45 @@ class _CustomCalendarPickerState extends State<CustomCalendarPicker> {
             const Divider(height: 20),
             Column(children: gridRows),
             const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue.shade700,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            // Riga inferiore con Pulsante Oggi e Pulsante Chiudi ben visibili
+            Row(
+              children: [
+                Expanded(
+                  flex: 2,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue.shade700,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    onPressed: () {
+                      DateTime oggi = DateTime.now();
+                      setState(() {
+                        _selectedDate = oggi;
+                        _currentMonth = DateTime(oggi.year, oggi.month, 1);
+                      });
+                      widget.onDateSelected(oggi);
+                      Navigator.pop(context);
+                    },
+                    child: Text('Oggi: ${DateTime.now().day.toString().padLeft(2, '0')}/${DateTime.now().month.toString().padLeft(2, '0')}/${DateTime.now().year}',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  ),
                 ),
-                onPressed: () {
-                  DateTime oggi = DateTime.now();
-                  setState(() {
-                    _selectedDate = oggi;
-                    _currentMonth = DateTime(oggi.year, oggi.month, 1);
-                  });
-                  widget.onDateSelected(oggi);
-                  Navigator.pop(context);
-                },
-                child: Text('Oggi: ${DateTime.now().day.toString().padLeft(2, '0')}/${DateTime.now().month.toString().padLeft(2, '0')}/${DateTime.now().year}',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-              ),
+                const SizedBox(width: 8),
+                Expanded(
+                  flex: 1,
+                  child: OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      side: const BorderSide(color: Colors.grey),
+                    ),
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Chiudi', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
