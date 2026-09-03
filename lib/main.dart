@@ -37,7 +37,169 @@ class GestionaleSindacatoApp extends StatelessWidget {
         Locale('it', 'IT'),
       ],
       locale: const Locale('it', 'IT'),
-      home: const SchermataGiornalieraPage(),
+      home: const SchermataAutenticazionePage(),
+    );
+  }
+}
+
+// Modello Profilo Utente
+class ProfiloUtente {
+  final String nome;
+  final String cognome;
+  final String ruolo;
+  final String sede;
+  final String telefono;
+  final String email;
+
+  ProfiloUtente({
+    required this.nome,
+    required this.cognome,
+    required this.ruolo,
+    required this.sede,
+    required this.telefono,
+    required this.email,
+  });
+}
+
+// Modello Autoveicolo in Memoria
+class Autoveicolo {
+  final String modello;
+  final String targa;
+  final String alimentazione;
+
+  Autoveicolo({required this.modello, required this.targa, required this.alimentazione});
+}
+
+// --- PAGINA DI AUTENTICAZIONE / REGISTRAZIONE ---
+class SchermataAutenticazionePage extends StatefulWidget {
+  const SchermataAutenticazionePage({super.key});
+
+  @override
+  State<SchermataAutenticazionePage> createState() => _SchermataAutenticazionePageState();
+}
+
+class _SchermataAutenticazionePageState extends State<SchermataAutenticazionePage> {
+  final _formKey = GlobalKey<FormState>();
+  final TextEditingController _nomeController = TextEditingController();
+  final TextEditingController _cognomeController = TextEditingController();
+  final TextEditingController _ruoloController = TextEditingController(text: 'Delegato Sindacale');
+  final TextEditingController _sedeController = TextEditingController();
+  final TextEditingController _telefonoController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+
+  void _registraAccedi() {
+    if (_formKey.currentState!.validate()) {
+      ProfiloUtente utente = ProfiloUtente(
+        nome: _nomeController.text.trim(),
+        cognome: _cognomeController.text.trim(),
+        ruolo: _ruoloController.text.trim(),
+        sede: _sedeController.text.trim(),
+        telefono: _telefonoController.text.trim(),
+        email: _emailController.text.trim(),
+      );
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => SchermataGiornalieraPage(utente: utente)),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const Color cislGreen = Color(0xFF0B5335);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Accesso / Registrazione Utente', style: TextStyle(color: Colors.white)),
+        backgroundColor: cislGreen,
+      ),
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24.0),
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 500),
+            child: Card(
+              elevation: 4,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const Icon(Icons.lock_person, size: 64, color: cislGreen),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'Benvenuto in CISL FP Trasferte',
+                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: cislGreen),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 6),
+                      const Text(
+                        'Inserisci i tuoi dati per accedere alla tua area personale e sincronizzare i tuoi rimborsi.',
+                        style: TextStyle(fontSize: 12, color: Colors.grey),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 24),
+                      TextFormField(
+                        controller: _nomeController,
+                        decoration: const InputDecoration(labelText: 'Nome', border: OutlineInputBorder(), prefixIcon: Icon(Icons.person)),
+                        validator: (value) => value == null || value.isEmpty ? 'Inserisci il nome' : null,
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _cognomeController,
+                        decoration: const InputDecoration(labelText: 'Cognome', border: OutlineInputBorder(), prefixIcon: Icon(Icons.person_outline)),
+                        validator: (value) => value == null || value.isEmpty ? 'Inserisci il cognome' : null,
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _emailController,
+                        keyboardType: TextInputType.emailAddress,
+                        decoration: const InputDecoration(labelText: 'Email (ID Accesso)', border: OutlineInputBorder(), prefixIcon: Icon(Icons.email)),
+                        validator: (value) => value == null || !value.contains('@') ? 'Inserisci un indirizzo email valido' : null,
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _ruoloController,
+                        decoration: const InputDecoration(labelText: 'Ruolo / Qualifica', border: OutlineInputBorder(), prefixIcon: Icon(Icons.badge)),
+                        validator: (value) => value == null || value.isEmpty ? 'Inserisci il ruolo' : null,
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _sedeController,
+                        decoration: const InputDecoration(labelText: 'Sede di Lavoro / Territorio', border: OutlineInputBorder(), prefixIcon: Icon(Icons.location_city)),
+                        validator: (value) => value == null || value.isEmpty ? 'Inserisci la sede' : null,
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _telefonoController,
+                        keyboardType: TextInputType.phone,
+                        decoration: const InputDecoration(labelText: 'Telefono', border: OutlineInputBorder(), prefixIcon: Icon(Icons.phone)),
+                        validator: (value) => value == null || value.isEmpty ? 'Inserisci il telefono' : null,
+                      ),
+                      const SizedBox(height: 24),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: cislGreen,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        onPressed: _registraAccedi,
+                        child: const Text('Accedi alla mia Area', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -100,7 +262,8 @@ class TrattDataBackup {
 }
 
 class SchermataGiornalieraPage extends StatefulWidget {
-  const SchermataGiornalieraPage({super.key});
+  final ProfiloUtente utente;
+  const SchermataGiornalieraPage({super.key, required this.utente});
 
   @override
   State<SchermataGiornalieraPage> createState() => _SchermataGiornalieraPageState();
@@ -114,6 +277,9 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
   final TextEditingController _targaController = TextEditingController();
   String _alimentazioneSelezionata = 'Gasolio (Diesel)';
   double _costoAciKm = 0.45;
+
+  // Lista Parco Auto in Memoria (fino a 4 veicoli)
+  final List<Autoveicolo> _parcoAuto = [];
 
   List<TrattaViaggio> _tratte = [TrattaViaggio()];
 
@@ -199,6 +365,16 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
     });
   }
 
+  void _eliminaRegistrazioneGiorno(DateTime data) {
+    setState(() {
+      _archivioGiornate.removeWhere((g) => g.year == data.year && g.month == data.month && g.day == data.day);
+      _caricaDatiGiorno(data);
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Registrazione del ${data.day}/${data.month}/${data.year} rimossa.')),
+    );
+  }
+
   Future<void> _selezionaData(BuildContext context) async {
     List<DateTime> dateRegistrate = _archivioGiornate.map((g) => g.data).toList();
 
@@ -212,7 +388,130 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
         onDateSelected: (DateTime newDate) {
           _caricaDatiGiorno(newDate);
         },
+        onDateUnselected: (DateTime unselectedDate) {
+          _eliminaRegistrazioneGiorno(unselectedDate);
+        },
       ),
+    );
+  }
+
+  // Finestra di Gestione Parco Auto (Max 4 veicoli)
+  Future<void> _gestisciParcoAuto() async {
+    final TextEditingController modCtrl = TextEditingController();
+    final TextEditingController targCtrl = TextEditingController();
+    String alimLocal = 'Gasolio (Diesel)';
+
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: const Text('Gestione Parco Veicoli (Max 4)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              content: SizedBox(
+                width: 400,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (_parcoAuto.isNotEmpty) ...[
+                      const Text('Veicoli in memoria:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
+                      const SizedBox(height: 6),
+                      SizedBox(
+                        height: 120,
+                        child: ListView.builder(
+                          shrinkWrap: true,
+                          itemCount: _parcoAuto.length,
+                          itemBuilder: (context, index) {
+                            final auto = _parcoAuto[index];
+                            return ListTile(
+                              dense: true,
+                              title: Text('${auto.modello} (${auto.targa})', style: const TextStyle(fontWeight: FontWeight.bold)),
+                              subtitle: Text('Alimentazione: ${auto.alimentazione}'),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.check_circle, color: Color(0xFF0B5335), size: 20),
+                                    tooltip: 'Usa questo veicolo',
+                                    onPressed: () {
+                                      setState(() {
+                                        _modelloAutoController.text = auto.modello;
+                                        _targaController.text = auto.targa;
+                                        _alimentazioneSelezionata = auto.alimentazione;
+                                        _aggiornaCostoAci(auto.alimentazione);
+                                      });
+                                      Navigator.pop(context);
+                                    },
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.delete, color: Colors.red, size: 20),
+                                    tooltip: 'Elimina veicolo',
+                                    onPressed: () {
+                                      setDialogState(() {
+                                        _parcoAuto.removeAt(index);
+                                      });
+                                    },
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      const Divider(),
+                    ],
+                    if (_parcoAuto.length < 4) ...[
+                      const Text('Aggiungi nuovo veicolo:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0B5335))),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: modCtrl,
+                        decoration: const InputDecoration(labelText: 'Modello Auto (es. Fiat Tipo)', border: OutlineInputBorder(), isDense: true),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: targCtrl,
+                        decoration: const InputDecoration(labelText: 'Targa', border: OutlineInputBorder(), isDense: true),
+                      ),
+                      const SizedBox(height: 8),
+                      DropdownButtonFormField<String>(
+                        value: alimLocal,
+                        decoration: const InputDecoration(labelText: 'Alimentazione', border: OutlineInputBorder(), isDense: true),
+                        items: <String>['Benzina', 'Gasolio (Diesel)', 'GPL / Metano', 'Ibrida / Elettrica']
+                            .map<DropdownMenuItem<String>>((String val) => DropdownMenuItem<String>(value: val, child: Text(val)))
+                            .toList(),
+                        onChanged: (val) => setDialogState(() => alimLocal = val ?? 'Gasolio (Diesel)'),
+                      ),
+                      const SizedBox(height: 10),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0B5335), foregroundColor: Colors.white),
+                        onPressed: () {
+                          if (modCtrl.text.isNotEmpty && targCtrl.text.isNotEmpty) {
+                            setDialogState(() {
+                              _parcoAuto.add(Autoveicolo(modello: modCtrl.text.trim(), targa: targCtrl.text.trim().toUpperCase(), alimentazione: alimLocal));
+                              modCtrl.clear();
+                              targCtrl.clear();
+                            });
+                          }
+                        },
+                        icon: const Icon(Icons.add, size: 16),
+                        label: const Text('Salva in Memoria'),
+                      ),
+                    ] else
+                      const Text('Hai raggiunto il limite massimo di 4 veicoli.', style: TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Chiudi', style: TextStyle(color: Colors.grey)),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 
@@ -598,7 +897,14 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
             pw.Row(
               mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
               children: [
-                pw.Text('CISL FP DEI LAGHI', style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold)),
+                pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text('CISL FP DEI LAGHI', style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold)),
+                    pw.SizedBox(height: 4),
+                    pw.Text('Operatore: ${widget.utente.nome} ${widget.utente.cognome} | Sede: ${widget.utente.sede}', style: pw.TextStyle(fontSize: 10, color: PdfColors.grey700)),
+                  ],
+                ),
                 pw.Text('Report Trasferte e Attività', style: pw.TextStyle(fontSize: 14)),
               ],
             ),
@@ -676,7 +982,6 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
             ),
           );
 
-          // Aggiunge le firme SOLO se richiesto (es. nel report mensile)
           if (mostraFirme) {
             widgets.add(pw.SizedBox(height: 40));
             widgets.add(
@@ -745,7 +1050,13 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
               errorBuilder: (context, error, stackTrace) => const Icon(Icons.shield, color: Colors.white, size: 28),
             ),
             const SizedBox(width: 10),
-            const Text('CISL FP - Gestione Trasferte', style: TextStyle(color: Colors.white, fontSize: 18)),
+            Expanded(
+              child: Text(
+                'CISL FP - ${widget.utente.nome} ${widget.utente.cognome} (${widget.utente.sede})',
+                style: const TextStyle(color: Colors.white, fontSize: 16),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           ],
         ),
         backgroundColor: cislGreen,
@@ -776,7 +1087,7 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
                           ),
                           onPressed: () => _selezionaData(context),
                           icon: const Icon(Icons.calendar_today, size: 18),
-                          label: const Text('Cambia Data'),
+                          label: const Text('Seleziona Data'),
                         ),
                       ],
                     ),
@@ -829,7 +1140,18 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
 
             const SizedBox(height: 16),
 
-            Text('Dati Autoveicolo e Tariffa ACI', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: cislGreen)),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Dati Autoveicolo e Tariffa ACI', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: cislGreen)),
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(foregroundColor: cislGreen, side: BorderSide(color: cislGreen)),
+                  onPressed: _gestisciParcoAuto,
+                  icon: const Icon(Icons.directions_car, size: 16),
+                  label: const Text('I Miei Veicoli'),
+                ),
+              ],
+            ),
             const SizedBox(height: 8),
             Row(
               children: [
@@ -838,7 +1160,7 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
                   child: TextField(
                     controller: _modelloAutoController,
                     enabled: !isNonLavorativo,
-                    decoration: const InputDecoration(labelText: 'Modello Auto (es. Fiat Tipo)', border: OutlineInputBorder(), prefixIcon: Icon(Icons.directions_car)),
+                    decoration: const InputDecoration(labelText: 'Modello Auto', border: OutlineInputBorder(), prefixIcon: Icon(Icons.directions_car)),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -1100,7 +1422,6 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
                   onPressed: () {
                     DateTime inizioMese = DateTime(_dataSelezionata.year, _dataSelezionata.month, 1);
                     DateTime fineMese = DateTime(_dataSelezionata.year, _dataSelezionata.month + 1, 0);
-                    // Abilita le firme SOLO per il report mensile
                     _stampaPdfIntervallo(inizioMese, fineMese, mostraFirme: true);
                   },
                   icon: const Icon(Icons.print, size: 16),
