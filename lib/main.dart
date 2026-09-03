@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   runApp(const GestionaleSindacatoApp());
@@ -61,6 +62,28 @@ class ProfiloUtente {
     required this.sede,
     required this.telefono,
   });
+
+  Map<String, dynamic> toJson() => {
+        'userId': userId,
+        'password': password,
+        'email': email,
+        'nome': nome,
+        'cognome': cognome,
+        'ruolo': ruolo,
+        'sede': sede,
+        'telefono': telefono,
+      };
+
+  factory ProfiloUtente.fromJson(Map<String, dynamic> json) => ProfiloUtente(
+        userId: json['userId'] ?? '',
+        password: json['password'] ?? '',
+        email: json['email'] ?? '',
+        nome: json['nome'] ?? '',
+        cognome: json['cognome'] ?? '',
+        ruolo: json['ruolo'] ?? '',
+        sede: json['sede'] ?? '',
+        telefono: json['telefono'] ?? '',
+      );
 }
 
 class Autoveicolo {
@@ -70,8 +93,6 @@ class Autoveicolo {
 
   Autoveicolo({required this.modello, required this.targa, required this.alimentazione});
 }
-
-List<ProfiloUtente> _utentiRegistrati = [];
 
 class SchermataAutenticazionePage extends StatefulWidget {
   const SchermataAutenticazionePage({super.key});
@@ -103,12 +124,21 @@ class _SchermataAutenticazionePageState extends State<SchermataAutenticazionePag
     _tabController = TabController(length: 2, vsync: this);
   }
 
-  void _eseguiLogin() {
+  Future<void> _eseguiLogin() async {
     if (_loginFormKey.currentState!.validate()) {
       String user = _loginUserCtrl.text.trim();
       String pass = _loginPassCtrl.text.trim();
 
-      var trovato = _utentiRegistrati.firstWhere(
+      final prefs = await SharedPreferences.getInstance();
+      String? utentiJsonStr = prefs.getString('utenti_registrati');
+      List<ProfiloUtente> utenti = [];
+
+      if (utentiJsonStr != null) {
+        List decoded = json.decode(utentiJsonStr);
+        utenti = decoded.map((e) => ProfiloUtente.fromJson(e)).toList();
+      }
+
+      var trovato = utenti.firstWhere(
         (u) => u.userId == user && u.password == pass,
         orElse: () => ProfiloUtente(userId: '', password: '', email: '', nome: '', cognome: '', ruolo: '', sede: '', telefono: ''),
       );
@@ -126,11 +156,20 @@ class _SchermataAutenticazionePageState extends State<SchermataAutenticazionePag
     }
   }
 
-  void _eseguiRegistrazione() {
+  Future<void> _eseguiRegistrazione() async {
     if (_regFormKey.currentState!.validate()) {
       String user = _regUserCtrl.text.trim();
+
+      final prefs = await SharedPreferences.getInstance();
+      String? utentiJsonStr = prefs.getString('utenti_registrati');
+      List<ProfiloUtente> utenti = [];
+
+      if (utentiJsonStr != null) {
+        List decoded = json.decode(utentiJsonStr);
+        utenti = decoded.map((e) => ProfiloUtente.fromJson(e)).toList();
+      }
       
-      if (_utentiRegistrati.any((u) => u.userId == user)) {
+      if (utenti.any((u) => u.userId == user)) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('User ID già esistente. Scegline un altro o fai il login.'), backgroundColor: Colors.red),
         );
@@ -148,10 +187,13 @@ class _SchermataAutenticazionePageState extends State<SchermataAutenticazionePag
         telefono: _regTelCtrl.text.trim(),
       );
 
-      _utentiRegistrati.add(nuovoUtente);
+      utenti.add(nuovoUtente);
+
+      List<Map<String, dynamic>> encoded = utenti.map((e) => e.toJson()).toList();
+      await prefs.setString('utenti_registrati', json.encode(encoded));
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Account creato con successo! Ora puoi accedere.'), backgroundColor: Colors.green),
+        const SnackBar(content: Text('Account salvato con successo! Ora puoi accedere.'), backgroundColor: Colors.green),
       );
 
       _tabController.animateTo(0);
@@ -369,7 +411,7 @@ class _SchermataAutenticazionePageState extends State<SchermataAutenticazionePag
   }
 }
 
-// --- CALENDARIO AVANZATO INTEGRATO ---
+// --- CLASSE DEL CALENDARIO AVANZATO ---
 class CustomCalendarPicker extends StatefulWidget {
   final DateTime initialDate;
   final DateTime firstDate;
@@ -423,13 +465,13 @@ class _CustomCalendarPickerState extends State<CustomCalendarPicker> {
     const Color cislGreen = Color(0xFF0B5335);
 
     int daysInMonth = DateTime(_currentMonth.year, _currentMonth.month + 1, 0).day;
-    int firstDayWeekday = DateTime(_currentMonth.year, _currentMonth.month, 1).weekday; // 1 = Lun, 7 = Dom
+    int firstDayWeekday = DateTime(_currentMonth.year, _currentMonth.month, 1).weekday;
 
     List<Widget> dayWidgets = [];
 
     List<String> weekDays = ['L', 'M', 'M', 'G', 'V', 'S', 'D'];
     for (int i = 0; i < weekDays.length; i++) {
-      bool isWeekendCol = (i >= 5); // Sabato e Domenica in rosso
+      bool isWeekendCol = (i >= 5);
       dayWidgets.add(
         Center(
           child: Text(
