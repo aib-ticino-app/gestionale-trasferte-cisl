@@ -383,7 +383,7 @@ class _SchermataAutenticazionePageState extends State<SchermataAutenticazionePag
               errorBuilder: (context, error, stackTrace) => const Icon(Icons.shield, color: Colors.white, size: 30),
             ),
             const SizedBox(width: 12),
-            const Text('CISL FP - Gestione Trasferte', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            const Text('CISL FP - Gestione Trasferte', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
           ],
         ),
         centerTitle: true,
@@ -394,8 +394,8 @@ class _SchermataAutenticazionePageState extends State<SchermataAutenticazionePag
           unselectedLabelColor: Colors.white70,
           indicatorColor: Colors.white,
           tabs: const [
-            Tab(text: 'ACCEDI', icon: Icon(Icons.login, size: 20)),
-            Tab(text: 'REGISTRATI', icon: Icon(Icons.person_add, size: 20)),
+            Tab(text: 'ACCEDI', icon: Icon(Icons.login, size: 18)),
+            Tab(text: 'REGISTRATI', icon: Icon(Icons.person_add, size: 18)),
           ],
         ),
       ),
@@ -1045,6 +1045,15 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
   String _statoGiornata = 'Lavorativa';
   DateTime _dataSelezionata = DateTime.now();
 
+  // Dati utente locali per permettere l'aggiornamento immediato a video
+  late String _nomeUtente;
+  late String _cognomeUtente;
+  late String _ruoloUtente;
+  late String _sedeUtente;
+  late String _emailUtente;
+  late String _telUtente;
+  late String _passUtente;
+
   final TextEditingController _modelloAutoController = TextEditingController();
   final TextEditingController _targaController = TextEditingController();
   String _alimentazioneSelezionata = 'Gasolio (Diesel)';
@@ -1071,6 +1080,14 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
   @override
   void initState() {
     super.initState();
+    _nomeUtente = widget.utente.nome;
+    _cognomeUtente = widget.utente.cognome;
+    _ruoloUtente = widget.utente.ruolo;
+    _sedeUtente = widget.utente.sede;
+    _emailUtente = widget.utente.email;
+    _telUtente = widget.utente.telefono;
+    _passUtente = widget.utente.password;
+
     _aggiornaAscoltatoriTratta(_tratte[0]);
     _parcheggioController.addListener(_calcolaTotali);
     _pedaggioController.addListener(_calcolaTotali);
@@ -1101,8 +1118,14 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
       setState(() {
         _caricaDatiGiorno(_dataSelezionata);
       });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Dati sincronizzati con Supabase!'), duration: Duration(seconds: 1)),
+      );
     } catch (e) {
-      print('Errore caricamento dati Supabase: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Errore sincronizzazione: $e'), backgroundColor: Colors.red),
+      );
     }
   }
 
@@ -1560,6 +1583,9 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
       _rimborsoAciTotale = 0.0;
       _speseExtraTotali = 0.0;
     });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Campi giornalieri ripuliti.'), duration: Duration(seconds: 1)),
+    );
   }
 
   void _aggiornaCostoAci(String? alimentazione) {
@@ -1622,6 +1648,199 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
         SnackBar(content: Text('Errore salvataggio giornata: $e'), backgroundColor: Colors.red),
       );
     }
+  }
+
+  void _mostraDialogoProfilo() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            const Icon(Icons.account_circle, color: Color(0xFF0B5335), size: 28),
+            const SizedBox(width: 8),
+            const Text('Profilo Utente', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Nome: $_nomeUtente $_cognomeUtente', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+            const SizedBox(height: 4),
+            Text('User ID: ${widget.utente.userId}', style: const TextStyle(color: Colors.grey, fontSize: 13)),
+            const Divider(height: 16),
+            Text('Ruolo: $_ruoloUtente', style: const TextStyle(fontSize: 13)),
+            const SizedBox(height: 4),
+            Text('Sede: $_sedeUtente', style: const TextStyle(fontSize: 13)),
+            const SizedBox(height: 4),
+            Text('Email: $_emailUtente', style: const TextStyle(fontSize: 13)),
+            const SizedBox(height: 4),
+            Text('Telefono: $_telUtente', style: const TextStyle(fontSize: 13)),
+          ],
+        ),
+        actions: [
+          TextButton.icon(
+            style: TextButton.styleFrom(foregroundColor: Colors.green.shade800),
+            onPressed: () {
+              Navigator.pop(context);
+              _mostraDialogoModificaProfilo();
+            },
+            icon: const Icon(Icons.edit, size: 18),
+            label: const Text('Modifica Dati'),
+          ),
+          TextButton.icon(
+            style: TextButton.styleFrom(foregroundColor: Colors.blue.shade800),
+            onPressed: () {
+              Navigator.pop(context);
+              _mostraDialogoReimpostaPassword();
+            },
+            icon: const Icon(Icons.lock_reset, size: 18),
+            label: const Text('Password'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0B5335), foregroundColor: Colors.white),
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Chiudi'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _mostraDialogoModificaProfilo() {
+    final TextEditingController nomeCtrl = TextEditingController(text: _nomeUtente);
+    final TextEditingController cognomeCtrl = TextEditingController(text: _cognomeUtente);
+    final TextEditingController ruoloCtrl = TextEditingController(text: _ruoloUtente);
+    final TextEditingController sedeCtrl = TextEditingController(text: _sedeUtente);
+    final TextEditingController emailCtrl = TextEditingController(text: _emailUtente);
+    final TextEditingController telCtrl = TextEditingController(text: _telUtente);
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Modifica Profilo', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(controller: nomeCtrl, decoration: const InputDecoration(labelText: 'Nome', border: OutlineInputBorder(), isDense: true)),
+              const SizedBox(height: 8),
+              TextField(controller: cognomeCtrl, decoration: const InputDecoration(labelText: 'Cognome', border: OutlineInputBorder(), isDense: true)),
+              const SizedBox(height: 8),
+              TextField(controller: ruoloCtrl, decoration: const InputDecoration(labelText: 'Ruolo / Qualifica', border: OutlineInputBorder(), isDense: true)),
+              const SizedBox(height: 8),
+              TextField(controller: sedeCtrl, decoration: const InputDecoration(labelText: 'Sede / Territorio', border: OutlineInputBorder(), isDense: true)),
+              const SizedBox(height: 8),
+              TextField(controller: emailCtrl, keyboardType: TextInputType.emailAddress, decoration: const InputDecoration(labelText: 'Email', border: OutlineInputBorder(), isDense: true)),
+              const SizedBox(height: 8),
+              TextField(controller: telCtrl, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'Telefono', border: OutlineInputBorder(), isDense: true)),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annulla', style: TextStyle(color: Colors.grey))),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0B5335), foregroundColor: Colors.white),
+            onPressed: () async {
+              try {
+                await Supabase.instance.client
+                    .from('profili_utenti_trasferte')
+                    .update({
+                      'nome': nomeCtrl.text.trim(),
+                      'cognome': cognomeCtrl.text.trim(),
+                      'ruolo': ruoloCtrl.text.trim(),
+                      'sede': sedeCtrl.text.trim(),
+                      'email': emailCtrl.text.trim(),
+                      'telefono': telCtrl.text.trim(),
+                    })
+                    .eq('user_id', widget.utente.userId);
+
+                setState(() {
+                  _nomeUtente = nomeCtrl.text.trim();
+                  _cognomeUtente = cognomeCtrl.text.trim();
+                  _ruoloUtente = ruoloCtrl.text.trim();
+                  _sedeUtente = sedeCtrl.text.trim();
+                  _emailUtente = emailCtrl.text.trim();
+                  _telUtente = telCtrl.text.trim();
+                });
+
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Profilo aggiornato con successo!'), backgroundColor: Colors.green),
+                );
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Errore aggiornamento profilo: $e'), backgroundColor: Colors.red),
+                );
+              }
+            },
+            child: const Text('Salva'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _mostraDialogoReimpostaPassword() {
+    final TextEditingController vecchiaPassCtrl = TextEditingController();
+    final TextEditingController nuovaPassCtrl = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Reimposta Password', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: vecchiaPassCtrl,
+              obscureText: true,
+              decoration: const InputDecoration(labelText: 'Password Attuale', border: OutlineInputBorder(), isDense: true),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: nuovaPassCtrl,
+              obscureText: true,
+              decoration: const InputDecoration(labelText: 'Nuova Password (min 4 caratteri)', border: OutlineInputBorder(), isDense: true),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annulla', style: TextStyle(color: Colors.grey))),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0B5335), foregroundColor: Colors.white),
+            onPressed: () async {
+              if (vecchiaPassCtrl.text.trim() == _passUtente && nuovaPassCtrl.text.trim().length >= 4) {
+                try {
+                  await Supabase.instance.client
+                      .from('profili_utenti_trasferte')
+                      .update({'password': nuovaPassCtrl.text.trim()})
+                      .eq('user_id', widget.utente.userId);
+
+                  _passUtente = nuovaPassCtrl.text.trim();
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Password aggiornata con successo!'), backgroundColor: Colors.green),
+                  );
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Errore aggiornamento password: $e'), backgroundColor: Colors.red),
+                  );
+                }
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Verifica che la password attuale sia corretta e la nuova sia di almeno 4 caratteri.'), backgroundColor: Colors.red),
+                );
+              }
+            },
+            child: const Text('Aggiorna'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _mostraSelettoreIntervalloStampa() async {
@@ -1731,7 +1950,7 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
                   children: [
                     pw.Text('CISL FP DEI LAGHI', style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold)),
                     pw.SizedBox(height: 4),
-                    pw.Text('Operatore: ${widget.utente.nome} ${widget.utente.cognome} | Sede: ${widget.utente.sede}', style: pw.TextStyle(fontSize: 10, color: PdfColors.grey700)),
+                    pw.Text('Operatore: $_nomeUtente $_cognomeUtente | Sede: $_sedeUtente', style: pw.TextStyle(fontSize: 10, color: PdfColors.grey700)),
                   ],
                 ),
                 pw.Text(includeAgenda ? 'Report Trasferte e Attività' : 'Nota Spese Mensile Trasferte', style: pw.TextStyle(fontSize: 14)),
@@ -1874,28 +2093,38 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
     return Scaffold(
       appBar: AppBar(
         title: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
             Image.asset(
               'assets/logo_cisl.png',
-              width: 32,
-              height: 32,
-              errorBuilder: (context, error, stackTrace) => const Icon(Icons.shield, color: Colors.white, size: 28),
+              width: 28,
+              height: 28,
+              errorBuilder: (context, error, stackTrace) => const Icon(Icons.shield, color: Colors.white, size: 24),
             ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                'CISL FP - ${widget.utente.nome} ${widget.utente.cognome} (${widget.utente.sede})',
-                style: const TextStyle(color: Colors.white, fontSize: 16),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
+            const SizedBox(width: 8),
+            const Text('CISL FP Trasferte', style: TextStyle(color: Colors.white, fontSize: 16)),
           ],
         ),
         backgroundColor: cislGreen,
         actions: [
           IconButton(
+            icon: const Icon(Icons.sync, color: Colors.white),
+            tooltip: 'Sincronizza con Supabase',
+            onPressed: _caricaDatiPersistenti,
+          ),
+          IconButton(
+            icon: const Icon(Icons.cleaning_services, color: Colors.white),
+            tooltip: 'Pulisci Campi',
+            onPressed: _azzeraCampiLavorativi,
+          ),
+          IconButton(
+            icon: const Icon(Icons.account_circle, color: Colors.white),
+            tooltip: 'Profilo Utente',
+            onPressed: _mostraDialogoProfilo,
+          ),
+          IconButton(
             icon: const Icon(Icons.logout, color: Colors.white),
-            tooltip: 'Esci / Logout',
+            tooltip: 'Esci / Disconnetti',
             onPressed: () {
               Navigator.pushReplacement(
                 context,
@@ -1974,9 +2203,11 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
                   children: [
                     const Icon(Icons.info, color: Colors.orange),
                     const SizedBox(width: 8),
-                    Text(
-                      'Giornata registrata come: $_statoGiornata. Nessuna spesa o rimborso calcolabile.',
-                      style: TextStyle(color: Colors.orange.shade900, fontWeight: FontWeight.bold),
+                    Expanded(
+                      child: Text(
+                        'Giornata registrata come: $_statoGiornata. Nessuna spesa o rimborso calcolabile.',
+                        style: TextStyle(color: Colors.orange.shade900, fontWeight: FontWeight.bold),
+                      ),
                     ),
                   ],
                 ),
@@ -2310,46 +2541,22 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
             ),
             const SizedBox(height: 20),
 
-            // Pulsanti finali: Pulisci Campi e Salva Giornata
-            Row(
-              children: [
-                Expanded(
-                  flex: 1,
-                  child: SizedBox(
-                    height: 50,
-                    child: OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.red.shade700,
-                        side: BorderSide(color: Colors.red.shade300),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      ),
-                      onPressed: _azzeraCampiLavorativi,
-                      icon: const Icon(Icons.cleaning_services, size: 18),
-                      label: const Text('Pulisci Campi', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-                    ),
-                  ),
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: isNonLavorativo ? Colors.orange.shade800 : cislGreen,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  flex: 2,
-                  child: SizedBox(
-                    height: 50,
-                    child: ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: isNonLavorativo ? Colors.orange.shade800 : cislGreen,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      ),
-                      onPressed: _salvaGiornataCorrente,
-                      icon: Icon(isNonLavorativo ? Icons.event_busy : Icons.save),
-                      label: Text(
-                        isNonLavorativo ? 'Salva Giornata' : 'Salva Giornata',
-                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ),
+                onPressed: _salvaGiornataCorrente,
+                icon: Icon(isNonLavorativo ? Icons.event_busy : Icons.save),
+                label: Text(
+                  isNonLavorativo ? 'Salva Giornata' : 'Salva Giornata',
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
-              ],
+              ),
             ),
           ],
         ),
