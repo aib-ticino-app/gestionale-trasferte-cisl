@@ -602,7 +602,7 @@ class _SchermataAutenticazionePageState extends State<SchermataAutenticazionePag
   }
 }
 
-// --- CALENDARIO PROFESSIONALE CON MENU A TENDINA E FESTIVITÀ AGGIORNATE ---
+// --- CALENDARIO PROFESSIONALE ---
 class CustomCalendarPicker extends StatefulWidget {
   final DateTime initialDate;
   final DateTime firstDate;
@@ -1239,7 +1239,7 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
           builder: (context, setDialogState) {
             return AlertDialog(
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              title: const Text('Gestione Parco Veicoli (Max 4)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              title: const Text('Gestione Parco Veicoli (Max 3)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               content: SizedBox(
                 width: 400,
                 child: Column(
@@ -1275,7 +1275,7 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
                       ),
                       const Divider(),
                     ],
-                    if (_parcoAuto.length < 4) ...[
+                    if (_parcoAuto.length < 3) ...[
                       const Text('Aggiungi nuovo veicolo:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0B5335))),
                       const SizedBox(height: 8),
                       TextField(
@@ -1314,7 +1314,7 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
                         label: const Text('Salva in Memoria'),
                       ),
                     ] else
-                      const Text('Raggiunto limite massimo di 4 veicoli.', style: TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.bold)),
+                      const Text('Raggiunto limite massimo di 3 veicoli.', style: TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.bold)),
                   ],
                 ),
               ),
@@ -1540,24 +1540,26 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
   }
 
   void _azzeraCampiLavorativi() {
-    _modelloAutoController.clear();
-    _targaController.clear();
-    for (var t in _tratte) {
-      t.partenzaController.dispose();
-      t.arrivoController.dispose();
-      t.kmController.dispose();
-    }
-    _tratte = [TrattaViaggio()];
-    _aggiornaAscoltatoriTratta(_tratte[0]);
-    _parcheggioController.clear();
-    _pedaggioController.clear();
-    _pastoController.clear();
-    _mezziController.clear();
-    _agendaController.clear();
-    _haBuonoPasto = false;
-    _totaleGiornaliero = 0.0;
-    _rimborsoAciTotale = 0.0;
-    _speseExtraTotali = 0.0;
+    setState(() {
+      _modelloAutoController.clear();
+      _targaController.clear();
+      for (var t in _tratte) {
+        t.partenzaController.dispose();
+        t.arrivoController.dispose();
+        t.kmController.dispose();
+      }
+      _tratte = [TrattaViaggio()];
+      _aggiornaAscoltatoriTratta(_tratte[0]);
+      _parcheggioController.clear();
+      _pedaggioController.clear();
+      _pastoController.clear();
+      _mezziController.clear();
+      _agendaController.clear();
+      _haBuonoPasto = false;
+      _totaleGiornaliero = 0.0;
+      _rimborsoAciTotale = 0.0;
+      _speseExtraTotali = 0.0;
+    });
   }
 
   void _aggiornaCostoAci(String? alimentazione) {
@@ -2308,21 +2310,46 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
             ),
             const SizedBox(height: 20),
 
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: isNonLavorativo ? Colors.orange.shade800 : cislGreen,
-                  foregroundColor: Colors.white,
+            // Pulsanti finali: Pulisci Campi e Salva Giornata
+            Row(
+              children: [
+                Expanded(
+                  flex: 1,
+                  child: SizedBox(
+                    height: 50,
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.red.shade700,
+                        side: BorderSide(color: Colors.red.shade300),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      onPressed: _azzeraCampiLavorativi,
+                      icon: const Icon(Icons.cleaning_services, size: 18),
+                      label: const Text('Pulisci Campi', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                    ),
+                  ),
                 ),
-                onPressed: _salvaGiornataCorrente,
-                icon: Icon(isNonLavorativo ? Icons.event_busy : Icons.save),
-                label: Text(
-                  isNonLavorativo ? 'Salva Giornata ($_statoGiornata)' : 'Salva Giornata Lavorativa',
-                  style: const TextStyle(fontSize: 16),
+                const SizedBox(width: 10),
+                Expanded(
+                  flex: 2,
+                  child: SizedBox(
+                    height: 50,
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: isNonLavorativo ? Colors.orange.shade800 : cislGreen,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      onPressed: _salvaGiornataCorrente,
+                      icon: Icon(isNonLavorativo ? Icons.event_busy : Icons.save),
+                      label: Text(
+                        isNonLavorativo ? 'Salva Giornata' : 'Salva Giornata',
+                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ),
                 ),
-              ),
+              ],
             ),
           ],
         ),
