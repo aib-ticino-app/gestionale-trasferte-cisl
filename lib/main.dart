@@ -12,7 +12,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Inizializzazione di Supabase con le credenziali del progetto
   await Supabase.initialize(
     url: 'https://kcqjyskoskqgggcugzps.supabase.co',
     anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtjcWp5c2tvc2txZ2dnY3VnenBzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg1MTMyNDQsImV4cCI6MjEwNDA4OTI0NH0.fV1B5dqaQCD7iA_xHpENbhpLn7_BeQ0smvv7szgEdSY',
@@ -294,7 +293,6 @@ class _SchermataAutenticazionePageState extends State<SchermataAutenticazionePag
       String user = _regUserCtrl.text.trim();
 
       try {
-        // Verifica se l'utente esiste già
         final esiste = await Supabase.instance.client
             .from('profili_utenti_trasferte')
             .select()
@@ -604,7 +602,7 @@ class _SchermataAutenticazionePageState extends State<SchermataAutenticazionePag
   }
 }
 
-// --- CALENDARIO PROFESSIONALE ---
+// --- CALENDARIO PROFESSIONALE CON MENU A TENDINA E FESTIVITÀ AGGIORNATE ---
 class CustomCalendarPicker extends StatefulWidget {
   final DateTime initialDate;
   final DateTime firstDate;
@@ -643,12 +641,6 @@ class _CustomCalendarPickerState extends State<CustomCalendarPicker> {
     _currentMonth = DateTime(widget.initialDate.year, widget.initialDate.month, 1);
   }
 
-  void _cambiaMese(int delta) {
-    setState(() {
-      _currentMonth = DateTime(_currentMonth.year, _currentMonth.month + delta, 1);
-    });
-  }
-
   bool _isDataRegistrata(DateTime d) {
     return widget.recordedDates.any((rd) => rd.year == d.year && rd.month == d.month && rd.day == d.day);
   }
@@ -685,7 +677,8 @@ class _CustomCalendarPickerState extends State<CustomCalendarPicker> {
         (m == 11 && day == 1) ||
         (m == 12 && day == 8) ||
         (m == 12 && day == 25) ||
-        (m == 12 && day == 26)) {
+        (m == 12 && day == 26) ||
+        (m == 12 && day == 31)) {
       return true;
     }
 
@@ -719,6 +712,7 @@ class _CustomCalendarPickerState extends State<CustomCalendarPicker> {
               ListTile(dense: true, title: Text('Immacolata Concezione'), trailing: Text('08/12', style: TextStyle(fontWeight: FontWeight.bold))),
               ListTile(dense: true, title: Text('Natale'), trailing: Text('25/12', style: TextStyle(fontWeight: FontWeight.bold))),
               ListTile(dense: true, title: Text('Santo Stefano'), trailing: Text('26/12', style: TextStyle(fontWeight: FontWeight.bold))),
+              ListTile(dense: true, title: Text('San Silvestro'), trailing: Text('31/12', style: TextStyle(fontWeight: FontWeight.bold))),
             ],
           ),
         ),
@@ -884,12 +878,14 @@ class _CustomCalendarPickerState extends State<CustomCalendarPicker> {
       }
     }
 
+    List<int> anniDisponibili = [2025, 2026, 2027, 2028, 2029, 2030];
+
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       elevation: 12,
       child: Container(
         padding: const EdgeInsets.all(20),
-        constraints: const BoxConstraints(maxWidth: 440),
+        constraints: const BoxConstraints(maxWidth: 460),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -900,31 +896,73 @@ class _CustomCalendarPickerState extends State<CustomCalendarPicker> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green.shade700,
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
                   onPressed: _mostraGestioneFestivita,
                   icon: const Icon(Icons.celebration, size: 16),
-                  label: const Text('Festività Nazionali', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  label: const Text('Festività', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                 ),
                 Row(
                   children: [
-                    IconButton(
-                      icon: const Icon(Icons.chevron_left, color: cislGreen, size: 28),
-                      onPressed: () => _cambiaMese(-1),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      height: 36,
+                      decoration: BoxDecoration(
+                        border: Border.all(color: cislGreen.withOpacity(0.5)),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: DropdownButton<int>(
+                        value: _currentMonth.month,
+                        underline: const SizedBox(),
+                        isDense: true,
+                        style: const TextStyle(color: cislGreen, fontWeight: FontWeight.bold, fontSize: 13),
+                        items: List.generate(12, (index) {
+                          return DropdownMenuItem<int>(
+                            value: index + 1,
+                            child: Text(_mesi[index]),
+                          );
+                        }),
+                        onChanged: (val) {
+                          if (val != null) {
+                            setState(() {
+                              _currentMonth = DateTime(_currentMonth.year, val, 1);
+                            });
+                          }
+                        },
+                      ),
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.chevron_right, color: cislGreen, size: 28),
-                      onPressed: () => _cambiaMese(1),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      height: 36,
+                      decoration: BoxDecoration(
+                        border: Border.all(color: cislGreen.withOpacity(0.5)),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: DropdownButton<int>(
+                        value: _currentMonth.year,
+                        underline: const SizedBox(),
+                        isDense: true,
+                        style: const TextStyle(color: cislGreen, fontWeight: FontWeight.bold, fontSize: 13),
+                        items: anniDisponibili.map((anno) {
+                          return DropdownMenuItem<int>(
+                            value: anno,
+                            child: Text('$anno'),
+                          );
+                        }).toList(),
+                        onChanged: (val) {
+                          if (val != null) {
+                            setState(() {
+                              _currentMonth = DateTime(val, _currentMonth.month, 1);
+                            });
+                          }
+                        },
+                      ),
                     ),
                   ],
                 ),
               ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '${_mesi[_currentMonth.month - 1]} ${_currentMonth.year}',
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: cislGreen),
             ),
             const Divider(height: 24),
             Column(children: gridRows),
@@ -1043,7 +1081,6 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
 
   Future<void> _caricaDatiPersistenti() async {
     try {
-      // Caricamento Parco Auto da Supabase
       final autoRes = await Supabase.instance.client
           .from('parco_auto_trasferte')
           .select()
@@ -1054,7 +1091,6 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
         _parcoAuto.add(Autoveicolo.fromJson(item));
       }
 
-      // Caricamento Archivio Giornate da Supabase
       final giornateRes = await Supabase.instance.client
           .from('archivio_giornate_trasferte')
           .select()
@@ -1072,7 +1108,6 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
 
   Future<void> _salvaAutoSuSupabase() async {
     try {
-      // Rimuoviamo le vecchie e reinseriamo le attuali per semplicità di sincronizzazione
       await Supabase.instance.client
           .from('parco_auto_trasferte')
           .delete()
@@ -1567,7 +1602,6 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
     );
 
     try {
-      // Upsert su Supabase (inserisce o aggiorna se la data esiste già per l'utente)
       Map<String, dynamic> dataToInsert = nuovaGiornata.toJson();
       dataToInsert['user_id'] = widget.utente.userId;
 
