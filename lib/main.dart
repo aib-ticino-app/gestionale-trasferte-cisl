@@ -204,6 +204,8 @@ class _SchermataAutenticazionePageState extends State<SchermataAutenticazionePag
   final _loginFormKey = GlobalKey<FormState>();
   final TextEditingController _loginUserCtrl = TextEditingController();
   final TextEditingController _loginPassCtrl = TextEditingController();
+  bool _oscuraLoginPass = true;
+  bool _ricordami = false;
 
   final _regFormKey = GlobalKey<FormState>();
   final TextEditingController _regUserCtrl = TextEditingController();
@@ -214,11 +216,27 @@ class _SchermataAutenticazionePageState extends State<SchermataAutenticazionePag
   final TextEditingController _regRuoloCtrl = TextEditingController(text: 'Delegato Sindacale');
   final TextEditingController _regSedeCtrl = TextEditingController();
   final TextEditingController _regTelCtrl = TextEditingController();
+  bool _oscuraRegPass = true;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _caricaPreferenzeLogin();
+  }
+
+  Future<void> _caricaPreferenzeLogin() async {
+    final prefs = await SharedPreferences.getInstance();
+    bool ricordato = prefs.getBool('ricordami_flag') ?? false;
+    if (ricordato) {
+      String? ultimoUser = prefs.getString('ultimo_user');
+      if (ultimoUser != null) {
+        setState(() {
+          _loginUserCtrl.text = ultimoUser;
+          _ricordami = true;
+        });
+      }
+    }
   }
 
   Future<void> _eseguiLogin() async {
@@ -227,6 +245,15 @@ class _SchermataAutenticazionePageState extends State<SchermataAutenticazionePag
       String pass = _loginPassCtrl.text.trim();
 
       final prefs = await SharedPreferences.getInstance();
+      
+      if (_ricordami) {
+        await prefs.setBool('ricordami_flag', true);
+        await prefs.setString('ultimo_user', user);
+      } else {
+        await prefs.remove('ricordami_flag');
+        await prefs.remove('ultimo_user');
+      }
+
       String? utentiJsonStr = prefs.getString('utenti_registrati');
       List<ProfiloUtente> utenti = [];
 
@@ -404,17 +431,37 @@ class _SchermataAutenticazionePageState extends State<SchermataAutenticazionePag
                           const SizedBox(height: 16),
                           TextFormField(
                             controller: _loginPassCtrl,
-                            obscureText: true,
-                            decoration: const InputDecoration(labelText: 'Password', border: OutlineInputBorder(), prefixIcon: Icon(Icons.lock)),
+                            obscureText: _oscuraLoginPass,
+                            decoration: InputDecoration(
+                              labelText: 'Password',
+                              border: const OutlineInputBorder(),
+                              prefixIcon: const Icon(Icons.lock),
+                              suffixIcon: IconButton(
+                                icon: Icon(_oscuraLoginPass ? Icons.visibility_off : Icons.visibility, color: Colors.grey),
+                                onPressed: () => setState(() => _oscuraLoginPass = !_oscuraLoginPass),
+                              ),
+                            ),
                             validator: (v) => v == null || v.isEmpty ? 'Inserisci la password' : null,
                           ),
                           const SizedBox(height: 8),
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: TextButton(
-                              onPressed: _mostraRecuperoPassword,
-                              child: const Text('Password dimenticata?', style: TextStyle(color: cislGreen, fontSize: 13)),
-                            ),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  Checkbox(
+                                    value: _ricordami,
+                                    activeColor: cislGreen,
+                                    onChanged: (val) => setState(() => _ricordami = val ?? false),
+                                  ),
+                                  const Text('Ricordami', style: TextStyle(fontSize: 13)),
+                                ],
+                              ),
+                              TextButton(
+                                onPressed: _mostraRecuperoPassword,
+                                child: const Text('Password dimenticata?', style: TextStyle(color: cislGreen, fontSize: 13)),
+                              ),
+                            ],
                           ),
                           const SizedBox(height: 16),
                           ElevatedButton(
@@ -472,8 +519,16 @@ class _SchermataAutenticazionePageState extends State<SchermataAutenticazionePag
                           const SizedBox(height: 12),
                           TextFormField(
                             controller: _regPassCtrl,
-                            obscureText: true,
-                            decoration: const InputDecoration(labelText: 'Password', border: OutlineInputBorder(), prefixIcon: Icon(Icons.lock)),
+                            obscureText: _oscuraRegPass,
+                            decoration: InputDecoration(
+                              labelText: 'Password',
+                              border: const OutlineInputBorder(),
+                              prefixIcon: const Icon(Icons.lock),
+                              suffixIcon: IconButton(
+                                icon: Icon(_oscuraRegPass ? Icons.visibility_off : Icons.visibility, color: Colors.grey),
+                                onPressed: () => setState(() => _oscuraRegPass = !_oscuraRegPass),
+                              ),
+                            ),
                             validator: (v) => v == null || v.length < 4 ? 'Minimo 4 caratteri' : null,
                           ),
                           const SizedBox(height: 12),
@@ -539,7 +594,7 @@ class _SchermataAutenticazionePageState extends State<SchermataAutenticazionePag
   }
 }
 
-// --- CALENDARIO MODERNO CON SELEZIONE SETTIMANA E CHIUDI ---
+// --- CALENDARIO PROFESSIONALE RIGENERATO ---
 class CustomCalendarPicker extends StatefulWidget {
   final DateTime initialDate;
   final DateTime firstDate;
@@ -695,7 +750,11 @@ class _CustomCalendarPickerState extends State<CustomCalendarPicker> {
 
     gridRows.add(
       Container(
-        decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(8)),
+        decoration: BoxDecoration(
+          color: cislGreen.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: cislGreen.withOpacity(0.2)),
+        ),
         child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: headerWidgets),
       ),
     );
@@ -721,16 +780,16 @@ class _CustomCalendarPickerState extends State<CustomCalendarPicker> {
             Navigator.pop(context);
           },
           child: Container(
-            width: 36,
+            width: 38,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: Colors.yellow.shade300,
-              borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: Colors.grey.shade400, width: 0.5),
+              color: Colors.amber.shade100,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: Colors.amber.shade400, width: 1),
             ),
             child: Text(
               '$numeroSettimana',
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.blue),
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.amber.shade900),
             ),
           ),
         ),
@@ -756,7 +815,7 @@ class _CustomCalendarPickerState extends State<CustomCalendarPicker> {
           cellColor = Colors.red.shade600;
           textColor = Colors.white;
         } else if (isRecorded) {
-          cellColor = cislGreen.withOpacity(0.2);
+          cellColor = cislGreen.withOpacity(0.25);
           textColor = cislGreen;
         } else if (isSaturday) {
           textColor = Colors.red.shade700;
@@ -779,12 +838,12 @@ class _CustomCalendarPickerState extends State<CustomCalendarPicker> {
                 Navigator.pop(context);
               },
               child: Container(
-                height: 38,
+                height: 40,
                 margin: const EdgeInsets.all(2),
                 decoration: BoxDecoration(
                   color: cellColor,
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: Colors.grey.shade300, width: 0.8),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: isSelected ? cislGreen : Colors.grey.shade300, width: isSelected ? 1.5 : 0.8),
                 ),
                 alignment: Alignment.center,
                 child: Text(
@@ -817,10 +876,10 @@ class _CustomCalendarPickerState extends State<CustomCalendarPicker> {
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      elevation: 8,
+      elevation: 12,
       child: Container(
         padding: const EdgeInsets.all(20),
-        constraints: const BoxConstraints(maxWidth: 420),
+        constraints: const BoxConstraints(maxWidth: 440),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -829,36 +888,37 @@ class _CustomCalendarPickerState extends State<CustomCalendarPicker> {
               children: [
                 ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green.shade600,
+                    backgroundColor: Colors.green.shade700,
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
                   onPressed: _mostraGestioneFestivita,
                   icon: const Icon(Icons.celebration, size: 16),
-                  label: const Text('Festività', style: TextStyle(fontSize: 12)),
+                  label: const Text('Festività Nazionali', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                 ),
                 Row(
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.chevron_left, color: cislGreen),
+                      icon: const Icon(Icons.chevron_left, color: cislGreen, size: 28),
                       onPressed: () => _cambiaMese(-1),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.chevron_right, color: cislGreen),
+                      icon: const Icon(Icons.chevron_right, color: cislGreen, size: 28),
                       onPressed: () => _cambiaMese(1),
                     ),
                   ],
                 ),
               ],
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 8),
             Text(
               '${_mesi[_currentMonth.month - 1]} ${_currentMonth.year}',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: cislGreen),
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: cislGreen),
             ),
-            const Divider(height: 20),
+            const Divider(height: 24),
             Column(children: gridRows),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
             Row(
               children: [
                 Expanded(
@@ -867,7 +927,7 @@ class _CustomCalendarPickerState extends State<CustomCalendarPicker> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.blue.shade700,
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     ),
                     onPressed: () {
@@ -883,12 +943,12 @@ class _CustomCalendarPickerState extends State<CustomCalendarPicker> {
                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 10),
                 Expanded(
                   flex: 1,
                   child: OutlinedButton(
                     style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                       side: const BorderSide(color: Colors.grey),
                     ),
@@ -974,7 +1034,6 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
   Future<void> _caricaDatiPersistenti() async {
     final prefs = await SharedPreferences.getInstance();
     
-    // Caricamento Parco Auto
     String? autoJsonStr = prefs.getString('parco_auto_${widget.utente.userId}');
     if (autoJsonStr != null) {
       List decoded = json.decode(autoJsonStr);
@@ -982,7 +1041,6 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
       _parcoAuto.addAll(decoded.map((e) => Autoveicolo.fromJson(e)));
     }
 
-    // Caricamento Archivio Giornate
     String? giornateJsonStr = prefs.getString('archivio_giornate_${widget.utente.userId}');
     if (giornateJsonStr != null) {
       List decoded = json.decode(giornateJsonStr);
@@ -995,11 +1053,9 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
   Future<void> _salvaDatiPersistenti() async {
     final prefs = await SharedPreferences.getInstance();
     
-    // Salva Parco Auto
     List<Map<String, dynamic>> autoEncoded = _parcoAuto.map((a) => a.toJson()).toList();
     await prefs.setString('parco_auto_${widget.utente.userId}', json.encode(autoEncoded));
 
-    // Salva Archivio Giornate
     List<Map<String, dynamic>> giornateEncoded = _archivioGiornate.map((g) => g.toJson()).toList();
     await prefs.setString('archivio_giornate_${widget.utente.userId}', json.encode(giornateEncoded));
   }
@@ -1256,7 +1312,7 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
                   style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0B5335), foregroundColor: Colors.white),
                   onPressed: () {
                     Navigator.pop(context);
-                    _stampaPdfIntervallo(inizioSettimana, fineSettimana, mostraFirme: false);
+                    _stampaPdfIntervallo(inizioSettimana, fineSettimana, mostraFirme: false, includeAgenda: true);
                   },
                   child: const Text('Stampa Settimana'),
                 ),
@@ -1543,7 +1599,7 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
                   style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0B5335), foregroundColor: Colors.white),
                   onPressed: () {
                     Navigator.pop(context);
-                    _stampaPdfIntervallo(dataInizio, dataFine, mostraFirme: false);
+                    _stampaPdfIntervallo(dataInizio, dataFine, mostraFirme: false, includeAgenda: true);
                   },
                   child: const Text('Stampa Report'),
                 ),
@@ -1555,7 +1611,7 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
     );
   }
 
-  Future<void> _stampaPdfIntervallo(DateTime inizio, DateTime fine, {bool mostraFirme = false}) async {
+  Future<void> _stampaPdfIntervallo(DateTime inizio, DateTime fine, {bool mostraFirme = false, bool includeAgenda = true}) async {
     DateTime start = DateTime(inizio.year, inizio.month, inizio.day);
     DateTime end = DateTime(fine.year, fine.month, fine.day, 23, 59, 59);
 
@@ -1587,7 +1643,7 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
                     pw.Text('Operatore: ${widget.utente.nome} ${widget.utente.cognome} | Sede: ${widget.utente.sede}', style: pw.TextStyle(fontSize: 10, color: PdfColors.grey700)),
                   ],
                 ),
-                pw.Text('Report Trasferte e Attività', style: pw.TextStyle(fontSize: 14)),
+                pw.Text(includeAgenda ? 'Report Trasferte e Attività' : 'Nota Spese Mensile Trasferte', style: pw.TextStyle(fontSize: 14)),
               ],
             ),
             pw.Divider(thickness: 2),
@@ -1627,19 +1683,23 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
                           )),
                     ],
                   ),
-                  pw.SizedBox(height: 15),
-                  pw.Text('Dettaglio Attività Sindacali e Agenda:', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold)),
-                  pw.SizedBox(height: 5),
-                  ...filtrate.where((g) => g.attivita.isNotEmpty).map((g) => pw.Padding(
-                        padding: const pw.EdgeInsets.only(bottom: 6),
-                        child: pw.Column(
-                          crossAxisAlignment: pw.CrossAxisAlignment.start,
-                          children: [
-                            pw.Text('${g.data.day}/${g.data.month}/${g.data.year} (${g.stato}):', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColors.grey700)),
-                            pw.Text(g.attivita, style: const pw.TextStyle(fontSize: 10)),
-                          ],
-                        ),
-                      )),
+                  
+                  // Inseriamo l'agenda SOLO se richiesto (escluso nel report mensile per l'amministrazione)
+                  if (includeAgenda) ...[
+                    pw.SizedBox(height: 15),
+                    pw.Text('Dettaglio Attività Sindacali e Agenda:', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold)),
+                    pw.SizedBox(height: 5),
+                    ...filtrate.where((g) => g.attivita.isNotEmpty).map((g) => pw.Padding(
+                          padding: const pw.EdgeInsets.only(bottom: 6),
+                          child: pw.Column(
+                            crossAxisAlignment: pw.CrossAxisAlignment.start,
+                            children: [
+                              pw.Text('${g.data.day}/${g.data.month}/${g.data.year} (${g.stato}):', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColors.grey700)),
+                              pw.Text(g.attivita, style: const pw.TextStyle(fontSize: 10)),
+                            ],
+                          ),
+                        )),
+                  ],
                 ],
               ),
             );
@@ -2130,7 +2190,7 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
               children: [
                 ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(backgroundColor: cislGreen, foregroundColor: Colors.white),
-                  onPressed: () => _stampaPdfIntervallo(_dataSelezionata, _dataSelezionata, mostraFirme: false),
+                  onPressed: () => _stampaPdfIntervallo(_dataSelezionata, _dataSelezionata, mostraFirme: false, includeAgenda: true),
                   icon: const Icon(Icons.print, size: 16),
                   label: const Text('Stampa Giorno'),
                 ),
@@ -2140,15 +2200,16 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
                   icon: const Icon(Icons.print, size: 16),
                   label: const Text('Stampa Settimana'),
                 ),
+                // REPORT MENSILE SENZA AGENDA (per l'Amministrazione)
                 ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(backgroundColor: cislGreen, foregroundColor: Colors.white),
                   onPressed: () {
                     DateTime inizioMese = DateTime(_dataSelezionata.year, _dataSelezionata.month, 1);
                     DateTime fineMese = DateTime(_dataSelezionata.year, _dataSelezionata.month + 1, 0);
-                    _stampaPdfIntervallo(inizioMese, fineMese, mostraFirme: true);
+                    _stampaPdfIntervallo(inizioMese, fineMese, mostraFirme: true, includeAgenda: false);
                   },
                   icon: const Icon(Icons.print, size: 16),
-                  label: const Text('Stampa Mese'),
+                  label: const Text('Stampa Mese (Amministrazione)'),
                 ),
                 ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.blue.shade800, foregroundColor: Colors.white),
