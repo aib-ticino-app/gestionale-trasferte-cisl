@@ -7,8 +7,17 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // Inizializzazione di Supabase con le credenziali del progetto
+  await Supabase.initialize(
+    url: 'https://kcqjyskoskqgggcugzps.supabase.co',
+    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtjcWp5c2tvc2txZ2dnY3VnenBzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg1MTMyNDQsImV4cCI6MjEwNDA4OTI0NH0.fV1B5dqaQCD7iA_xHpENbhpLn7_BeQ0smvv7szgEdSY',
+  );
+
   runApp(const GestionaleSindacatoApp());
 }
 
@@ -64,7 +73,7 @@ class ProfiloUtente {
   });
 
   Map<String, dynamic> toJson() => {
-        'userId': userId,
+        'user_id': userId,
         'password': password,
         'email': email,
         'nome': nome,
@@ -75,7 +84,7 @@ class ProfiloUtente {
       };
 
   factory ProfiloUtente.fromJson(Map<String, dynamic> json) => ProfiloUtente(
-        userId: json['userId'] ?? '',
+        userId: json['user_id'] ?? '',
         password: json['password'] ?? '',
         email: json['email'] ?? '',
         nome: json['nome'] ?? '',
@@ -159,33 +168,33 @@ class GiornataSalvata {
   });
 
   Map<String, dynamic> toJson() => {
-        'data': data.toIso8601String(),
+        'data_giorno': data.toIso8601String().substring(0, 10),
         'stato': stato,
-        'modelloAuto': modelloAuto,
+        'modello_auto': modelloAuto,
         'targa': targa,
         'alimentazione': alimentazione,
-        'costoAciKm': costoAciKm,
-        'tratteDettaglio': tratteDettaglio.map((t) => t.toJson()).toList(),
-        'rimborsoAci': rimborsoAci,
-        'speseExtra': speseExtra,
-        'haBuonoPasto': haBuonoPasto,
-        'buonoPastoImporto': buonoPastoImporto,
+        'costo_aci_km': costoAciKm,
+        'tratte_dettaglio': tratteDettaglio.map((t) => t.toJson()).toList(),
+        'rimborso_aci': rimborsoAci,
+        'spese_extra': speseExtra,
+        'ha_buono_pasto': haBuonoPasto,
+        'buono_pasto_importo': buonoPastoImporto,
         'totale': totale,
         'attivita': attivita,
       };
 
   factory GiornataSalvata.fromJson(Map<String, dynamic> json) => GiornataSalvata(
-        data: DateTime.parse(json['data']),
+        data: DateTime.parse(json['data_giorno']),
         stato: json['stato'] ?? 'Lavorativa',
-        modelloAuto: json['modelloAuto'] ?? '',
+        modelloAuto: json['modello_auto'] ?? '',
         targa: json['targa'] ?? '',
         alimentazione: json['alimentazione'] ?? '',
-        costoAciKm: json['costoAciKm']?.toDouble() ?? 0.45,
-        tratteDettaglio: (json['tratteDettaglio'] as List?)?.map((t) => TrattDataBackup.fromJson(t)).toList() ?? [],
-        rimborsoAci: json['rimborsoAci']?.toDouble() ?? 0.0,
-        speseExtra: json['speseExtra']?.toDouble() ?? 0.0,
-        haBuonoPasto: json['haBuonoPasto'] ?? false,
-        buonoPastoImporto: json['buonoPastoImporto']?.toDouble() ?? 0.0,
+        costoAciKm: json['costo_aci_km']?.toDouble() ?? 0.45,
+        tratteDettaglio: (json['tratte_dettaglio'] as List?)?.map((t) => TrattDataBackup.fromJson(t)).toList() ?? [],
+        rimborsoAci: json['rimborso_aci']?.toDouble() ?? 0.0,
+        speseExtra: json['spese_extra']?.toDouble() ?? 0.0,
+        haBuonoPasto: json['ha_buono_pasto'] ?? false,
+        buonoPastoImporto: json['buono_pasto_importo']?.toDouble() ?? 0.0,
         totale: json['totale']?.toDouble() ?? 0.0,
         attivita: json['attivita'] ?? '',
       );
@@ -245,7 +254,6 @@ class _SchermataAutenticazionePageState extends State<SchermataAutenticazionePag
       String pass = _loginPassCtrl.text.trim();
 
       final prefs = await SharedPreferences.getInstance();
-      
       if (_ricordami) {
         await prefs.setBool('ricordami_flag', true);
         await prefs.setString('ultimo_user', user);
@@ -254,27 +262,28 @@ class _SchermataAutenticazionePageState extends State<SchermataAutenticazionePag
         await prefs.remove('ultimo_user');
       }
 
-      String? utentiJsonStr = prefs.getString('utenti_registrati');
-      List<ProfiloUtente> utenti = [];
+      try {
+        final response = await Supabase.instance.client
+            .from('profili_utenti_trasferte')
+            .select()
+            .eq('user_id', user)
+            .eq('password', pass)
+            .maybeSingle();
 
-      if (utentiJsonStr != null) {
-        List decoded = json.decode(utentiJsonStr);
-        utenti = decoded.map((e) => ProfiloUtente.fromJson(e)).toList();
-      }
-
-      var trovato = utenti.firstWhere(
-        (u) => u.userId == user && u.password == pass,
-        orElse: () => ProfiloUtente(userId: '', password: '', email: '', nome: '', cognome: '', ruolo: '', sede: '', telefono: ''),
-      );
-
-      if (trovato.userId.isNotEmpty) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => SchermataGiornalieraPage(utente: trovato)),
-        );
-      } else {
+        if (response != null) {
+          ProfiloUtente trovato = ProfiloUtente.fromJson(response);
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => SchermataGiornalieraPage(utente: trovato)),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Credenziali non valide o account non esistente.'), backgroundColor: Colors.red),
+          );
+        }
+      } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Credenziali non valide o account non esistente. Registrati prima!'), backgroundColor: Colors.red),
+          SnackBar(content: Text('Errore di connessione a Supabase: $e'), backgroundColor: Colors.red),
         );
       }
     }
@@ -284,43 +293,44 @@ class _SchermataAutenticazionePageState extends State<SchermataAutenticazionePag
     if (_regFormKey.currentState!.validate()) {
       String user = _regUserCtrl.text.trim();
 
-      final prefs = await SharedPreferences.getInstance();
-      String? utentiJsonStr = prefs.getString('utenti_registrati');
-      List<ProfiloUtente> utenti = [];
+      try {
+        // Verifica se l'utente esiste già
+        final esiste = await Supabase.instance.client
+            .from('profili_utenti_trasferte')
+            .select()
+            .eq('user_id', user)
+            .maybeSingle();
 
-      if (utentiJsonStr != null) {
-        List decoded = json.decode(utentiJsonStr);
-        utenti = decoded.map((e) => ProfiloUtente.fromJson(e)).toList();
-      }
-      
-      if (utenti.any((u) => u.userId == user)) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('User ID già esistente. Scegline un altro o fai il login.'), backgroundColor: Colors.red),
+        if (esiste != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('User ID già esistente. Scegline un altro o fai il login.'), backgroundColor: Colors.red),
+          );
+          return;
+        }
+
+        ProfiloUtente nuovoUtente = ProfiloUtente(
+          userId: user,
+          password: _regPassCtrl.text.trim(),
+          email: _regEmailCtrl.text.trim(),
+          nome: _regNomeCtrl.text.trim(),
+          cognome: _regCognomeCtrl.text.trim(),
+          ruolo: _regRuoloCtrl.text.trim(),
+          sede: _regSedeCtrl.text.trim(),
+          telefono: _regTelCtrl.text.trim(),
         );
-        return;
+
+        await Supabase.instance.client.from('profili_utenti_trasferte').insert(nuovoUtente.toJson());
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Account salvato su Supabase con successo! Ora puoi accedere.'), backgroundColor: Colors.green),
+        );
+
+        _tabController.animateTo(0);
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Errore durante la registrazione: $e'), backgroundColor: Colors.red),
+        );
       }
-
-      ProfiloUtente nuovoUtente = ProfiloUtente(
-        userId: user,
-        password: _regPassCtrl.text.trim(),
-        email: _regEmailCtrl.text.trim(),
-        nome: _regNomeCtrl.text.trim(),
-        cognome: _regCognomeCtrl.text.trim(),
-        ruolo: _regRuoloCtrl.text.trim(),
-        sede: _regSedeCtrl.text.trim(),
-        telefono: _regTelCtrl.text.trim(),
-      );
-
-      utenti.add(nuovoUtente);
-
-      List<Map<String, dynamic>> encoded = utenti.map((e) => e.toJson()).toList();
-      await prefs.setString('utenti_registrati', json.encode(encoded));
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Account salvato con successo! Ora puoi accedere.'), backgroundColor: Colors.green),
-      );
-
-      _tabController.animateTo(0);
     }
   }
 
@@ -594,7 +604,7 @@ class _SchermataAutenticazionePageState extends State<SchermataAutenticazionePag
   }
 }
 
-// --- CALENDARIO PROFESSIONALE RIGENERATO ---
+// --- CALENDARIO PROFESSIONALE ---
 class CustomCalendarPicker extends StatefulWidget {
   final DateTime initialDate;
   final DateTime firstDate;
@@ -1032,32 +1042,53 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
   }
 
   Future<void> _caricaDatiPersistenti() async {
-    final prefs = await SharedPreferences.getInstance();
-    
-    String? autoJsonStr = prefs.getString('parco_auto_${widget.utente.userId}');
-    if (autoJsonStr != null) {
-      List decoded = json.decode(autoJsonStr);
+    try {
+      // Caricamento Parco Auto da Supabase
+      final autoRes = await Supabase.instance.client
+          .from('parco_auto_trasferte')
+          .select()
+          .eq('user_id', widget.utente.userId);
+
       _parcoAuto.clear();
-      _parcoAuto.addAll(decoded.map((e) => Autoveicolo.fromJson(e)));
-    }
+      for (var item in autoRes) {
+        _parcoAuto.add(Autoveicolo.fromJson(item));
+      }
 
-    String? giornateJsonStr = prefs.getString('archivio_giornate_${widget.utente.userId}');
-    if (giornateJsonStr != null) {
-      List decoded = json.decode(giornateJsonStr);
-      _archivioGiornate = decoded.map((e) => GiornataSalvata.fromJson(e)).toList();
-    }
+      // Caricamento Archivio Giornate da Supabase
+      final giornateRes = await Supabase.instance.client
+          .from('archivio_giornate_trasferte')
+          .select()
+          .eq('user_id', widget.utente.userId);
 
-    _caricaDatiGiorno(_dataSelezionata);
+      _archivioGiornate = giornateRes.map((e) => GiornataSalvata.fromJson(e)).toList();
+
+      setState(() {
+        _caricaDatiGiorno(_dataSelezionata);
+      });
+    } catch (e) {
+      print('Errore caricamento dati Supabase: $e');
+    }
   }
 
-  Future<void> _salvaDatiPersistenti() async {
-    final prefs = await SharedPreferences.getInstance();
-    
-    List<Map<String, dynamic>> autoEncoded = _parcoAuto.map((a) => a.toJson()).toList();
-    await prefs.setString('parco_auto_${widget.utente.userId}', json.encode(autoEncoded));
+  Future<void> _salvaAutoSuSupabase() async {
+    try {
+      // Rimuoviamo le vecchie e reinseriamo le attuali per semplicità di sincronizzazione
+      await Supabase.instance.client
+          .from('parco_auto_trasferte')
+          .delete()
+          .eq('user_id', widget.utente.userId);
 
-    List<Map<String, dynamic>> giornateEncoded = _archivioGiornate.map((g) => g.toJson()).toList();
-    await prefs.setString('archivio_giornate_${widget.utente.userId}', json.encode(giornateEncoded));
+      for (var auto in _parcoAuto) {
+        await Supabase.instance.client.from('parco_auto_trasferte').insert({
+          'user_id': widget.utente.userId,
+          'modello': auto.modello,
+          'targa': auto.targa,
+          'alimentazione': auto.alimentazione,
+        });
+      }
+    } catch (e) {
+      print('Errore salvataggio auto: $e');
+    }
   }
 
   void _aggiornaAscoltatoriTratta(TrattaViaggio tratta) {
@@ -1118,14 +1149,27 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
   }
 
   Future<void> _eliminaRegistrazioneGiorno(DateTime data) async {
-    setState(() {
-      _archivioGiornate.removeWhere((g) => g.data.year == data.year && g.data.month == data.month && g.data.day == data.day);
-      _caricaDatiGiorno(data);
-    });
-    await _salvaDatiPersistenti();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Registrazione del ${data.day}/${data.month}/${data.year} rimossa.')),
-    );
+    String dataStr = data.toIso8601String().substring(0, 10);
+    try {
+      await Supabase.instance.client
+          .from('archivio_giornate_trasferte')
+          .delete()
+          .eq('user_id', widget.utente.userId)
+          .eq('data_giorno', dataStr);
+
+      setState(() {
+        _archivioGiornate.removeWhere((g) => g.data.year == data.year && g.data.month == data.month && g.data.day == data.day);
+        _caricaDatiGiorno(data);
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Registrazione del ${data.day}/${data.month}/${data.year} rimossa.')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Errore eliminazione: $e'), backgroundColor: Colors.red),
+      );
+    }
   }
 
   Future<void> _selezionaData(BuildContext context) async {
@@ -1187,7 +1231,7 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
                                     _parcoAuto.removeAt(index);
                                   });
                                   setState(() {});
-                                  await _salvaDatiPersistenti();
+                                  await _salvaAutoSuSupabase();
                                 },
                               ),
                             );
@@ -1228,7 +1272,7 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
                               targCtrl.clear();
                             });
                             setState(() {});
-                            await _salvaDatiPersistenti();
+                            await _salvaAutoSuSupabase();
                           }
                         },
                         icon: const Icon(Icons.add, size: 16),
@@ -1498,8 +1542,6 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
   }
 
   Future<void> _salvaGiornataCorrente() async {
-    _archivioGiornate.removeWhere((g) => g.data.year == _dataSelezionata.year && g.data.month == _dataSelezionata.month && g.data.day == _dataSelezionata.day);
-
     List<TrattDataBackup> tratteBackup = _tratte.map((t) => TrattDataBackup(
       partenza: t.partenzaController.text,
       arrivo: t.arrivoController.text,
@@ -1508,29 +1550,42 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
       rimborso: t.rimborsoTratta,
     )).toList();
 
-    _archivioGiornate.add(
-      GiornataSalvata(
-        data: _dataSelezionata,
-        stato: _statoGiornata,
-        modelloAuto: _modelloAutoController.text,
-        targa: _targaController.text,
-        alimentazione: _alimentazioneSelezionata,
-        costoAciKm: _costoAciKm,
-        tratteDettaglio: tratteBackup,
-        rimborsoAci: _rimborsoAciTotale,
-        speseExtra: _speseExtraTotali,
-        haBuonoPasto: _haBuonoPasto,
-        buonoPastoImporto: _haBuonoPasto ? _valoreBuonoPasto : 0.0,
-        totale: _totaleGiornaliero,
-        attivita: _agendaController.text,
-      ),
+    GiornataSalvata nuovaGiornata = GiornataSalvata(
+      data: _dataSelezionata,
+      stato: _statoGiornata,
+      modelloAuto: _modelloAutoController.text,
+      targa: _targaController.text,
+      alimentazione: _alimentazioneSelezionata,
+      costoAciKm: _costoAciKm,
+      tratteDettaglio: tratteBackup,
+      rimborsoAci: _rimborsoAciTotale,
+      speseExtra: _speseExtraTotali,
+      haBuonoPasto: _haBuonoPasto,
+      buonoPastoImporto: _haBuonoPasto ? _valoreBuonoPasto : 0.0,
+      totale: _totaleGiornaliero,
+      attivita: _agendaController.text,
     );
 
-    await _salvaDatiPersistenti();
+    try {
+      // Upsert su Supabase (inserisce o aggiorna se la data esiste già per l'utente)
+      Map<String, dynamic> dataToInsert = nuovaGiornata.toJson();
+      dataToInsert['user_id'] = widget.utente.userId;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Giornata del ${_dataSelezionata.day}/${_dataSelezionata.month}/${_dataSelezionata.year} salvata con successo!')),
-    );
+      await Supabase.instance.client
+          .from('archivio_giornate_trasferte')
+          .upsert(dataToInsert, onConflict: 'user_id,data_giorno');
+
+      _archivioGiornate.removeWhere((g) => g.data.year == _dataSelezionata.year && g.data.month == _dataSelezionata.month && g.data.day == _dataSelezionata.day);
+      _archivioGiornate.add(nuovaGiornata);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Giornata del ${_dataSelezionata.day}/${_dataSelezionata.month}/${_dataSelezionata.year} salvata su Supabase!')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Errore salvataggio giornata: $e'), backgroundColor: Colors.red),
+      );
+    }
   }
 
   Future<void> _mostraSelettoreIntervalloStampa() async {
@@ -1684,7 +1739,6 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
                     ],
                   ),
                   
-                  // Inseriamo l'agenda SOLO se richiesto (escluso nel report mensile per l'amministrazione)
                   if (includeAgenda) ...[
                     pw.SizedBox(height: 15),
                     pw.Text('Dettaglio Attività Sindacali e Agenda:', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold)),
@@ -2200,7 +2254,6 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
                   icon: const Icon(Icons.print, size: 16),
                   label: const Text('Stampa Settimana'),
                 ),
-                // REPORT MENSILE SENZA AGENDA (per l'Amministrazione)
                 ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(backgroundColor: cislGreen, foregroundColor: Colors.white),
                   onPressed: () {
