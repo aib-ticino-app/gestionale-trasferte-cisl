@@ -1045,7 +1045,6 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
   String _statoGiornata = 'Lavorativa';
   DateTime _dataSelezionata = DateTime.now();
 
-  // Dati utente locali per permettere l'aggiornamento immediato a video
   late String _nomeUtente;
   late String _cognomeUtente;
   late String _ruoloUtente;
@@ -1200,7 +1199,7 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
           _aggiornaAscoltatoriTratta(_tratte[0]);
         }
       } else {
-        _azzeraCampiLavorativi();
+        _azzeraCampiLavorativiVisuale();
       }
       _calcolaTotali();
     });
@@ -1562,7 +1561,7 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
     });
   }
 
-  void _azzeraCampiLavorativi() {
+  void _azzeraCampiLavorativiVisuale() {
     setState(() {
       _modelloAutoController.clear();
       _targaController.clear();
@@ -1582,9 +1581,16 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
       _totaleGiornaliero = 0.0;
       _rimborsoAciTotale = 0.0;
       _speseExtraTotali = 0.0;
+      _statoGiornata = 'Lavorativa';
     });
+  }
+
+  // Pulisce i campi e rimuove la giornata anche dal database e dallo storico
+  Future<void> _pulisciEraseGiornata() async {
+    _azzeraCampiLavorativiVisuale();
+    await _eliminaRegistrazioneGiorno(_dataSelezionata);
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Campi giornalieri ripuliti.'), duration: Duration(seconds: 1)),
+      const SnackBar(content: Text('Campi ripuliti e giornata rimossa dal calendario.'), duration: Duration(seconds: 1)),
     );
   }
 
@@ -2114,8 +2120,8 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
           ),
           IconButton(
             icon: const Icon(Icons.cleaning_services, color: Colors.white),
-            tooltip: 'Pulisci Campi',
-            onPressed: _azzeraCampiLavorativi,
+            tooltip: 'Pulisci Campi e Rimuovi Salvataggio',
+            onPressed: _pulisciEraseGiornata,
           ),
           IconButton(
             icon: const Icon(Icons.account_circle, color: Colors.white),
@@ -2184,7 +2190,7 @@ class _SchermataGiornalieraPageState extends State<SchermataGiornalieraPage> {
                         setState(() {
                           _statoGiornata = newValue ?? 'Lavorativa';
                           if (_statoGiornata != 'Lavorativa' && _statoGiornata != 'Ex Festività' && _statoGiornata != 'Festività') {
-                            _azzeraCampiLavorativi();
+                            _azzeraCampiLavorativiVisuale();
                           }
                         });
                       },
